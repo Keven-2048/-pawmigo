@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pawmigo
+      MYSQL_USER: pawmigo
+      MYSQL_PASSWORD: pawmigo
+    ports: ["3306:3306"]
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
