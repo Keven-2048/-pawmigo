@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 
 	"github.com/pawmigo/server/internal/model"
@@ -14,10 +16,14 @@ func NewUserRepo(db *gorm.DB) *UserRepo { return &UserRepo{db: db} }
 func (r *UserRepo) FindOrCreateByOpenID(openID string) (*model.User, error) {
 	var u model.User
 	err := r.db.Where("open_id = ?", openID).First(&u).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		u = model.User{OpenID: openID, Nickname: "毛孩子主人"}
 		if err := r.db.Create(&u).Error; err != nil {
-			return nil, err
+			// 并发插入：另一个请求抢先创建了同一 openid，重查返回它。
+			if qerr := r.db.Where("open_id = ?", openID).First(&u).Error; qerr != nil {
+				return nil, err
+			}
+			return &u, nil
 		}
 		return &u, nil
 	}
