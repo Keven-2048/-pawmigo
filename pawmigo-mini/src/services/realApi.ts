@@ -1,5 +1,6 @@
 import { request } from './request'
-import { LoginResult, MockApi, Pet, PetInput, User } from './api'
+import { LoginResult, Pet, PetInput, User } from './types'
+import { MockApi } from './mockApi'
 import { mockApi } from './mockApi'
 
 // Only these endpoints exist on the Go backend today. Everything else falls

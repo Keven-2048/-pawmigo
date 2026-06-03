@@ -2,9 +2,9 @@ import { db, nextId, persistDb } from '../mock/db'
 import { delay, maybeFail, TIMINGS } from '../mock/delay'
 import {
   AppNotification, ChatMessage, Comment, Encounter, EncounterCandidate, EncounterMode,
-  FeedPost, LoginResult, MapFilter, NearbyPet, Pet, PetInput, PostInput, Settings,
+  FeedPost, LoginResult, MapFilter, NearbyPet, Pet, PetInput, PostInput, SafetyItem, Settings,
   ShopItem, Team, TeamInput, Trophy, User, WalletTask, WalletTxn,
-} from './api'
+} from './types'
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 const now = () => new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -255,7 +255,7 @@ export const mockApi = {
     await delay(TIMINGS.fast)
     return clone(db.trophies)
   },
-  async getSafety(): Promise<{ score: number; items: typeof db.safety }> {
+  async getSafety(): Promise<{ score: number; items: SafetyItem[] }> {
     await delay(TIMINGS.fast)
     return { score: 98, items: clone(db.safety) }
   },
