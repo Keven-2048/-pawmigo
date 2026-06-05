@@ -3,7 +3,7 @@ import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { AppIcon } from '../../components/icons'
 import { ActionIconButton, AppBar, IconButton, MainNav } from '../../components/ui'
-import { api, FeedPost } from '../../services/api'
+import { api, Comment, FeedPost } from '../../services/api'
 import { backOrHome, openPage } from '../../utils/navigation'
 import { useRequireAuth } from '../../utils/useRequireAuth'
 
@@ -14,6 +14,9 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [openComments, setOpenComments] = useState<number | null>(null)
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, Comment[]>>({})
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({})
 
   const fetchPosts = () => {
     setLoading(true)
@@ -54,6 +57,31 @@ export default function FeedPage() {
       Taro.showToast({ title: '已投喂 1 根骨头 🦴', icon: 'success', duration: 1500 })
     }).catch((err) => {
       Taro.showToast({ title: err?.message || '投喂失败', icon: 'none' })
+    })
+  }
+
+  const toggleComments = (postId: number) => {
+    if (openComments === postId) {
+      setOpenComments(null)
+      return
+    }
+    setOpenComments(postId)
+    if (!commentsByPost[postId]) {
+      api.getComments(postId).then((list) => {
+        setCommentsByPost((prev) => ({ ...prev, [postId]: list }))
+      }).catch(() => {})
+    }
+  }
+
+  const handleAddComment = (postId: number) => {
+    const text = (commentDrafts[postId] || '').trim()
+    if (!text) return
+    api.addComment(postId, text).then((created) => {
+      setCommentsByPost((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), created] }))
+      setCommentDrafts((prev) => ({ ...prev, [postId]: '' }))
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)))
+    }).catch(() => {
+      Taro.showToast({ title: '评论失败，请重试', icon: 'none' })
     })
   }
 
@@ -148,7 +176,7 @@ export default function FeedPage() {
                   tone='rose'
                   onClick={() => handleLike(post.id)}
                 />
-                <ActionIconButton icon='message' label='评论' tone='cyan' onClick={() => Taro.showToast({ title: '评论详情即将上线', icon: 'none' })} />
+                <ActionIconButton icon='message' label='评论' tone='cyan' active={openComments === post.id} onClick={() => toggleComments(post.id)} />
               </View>
               <View className='bone-action' onClick={() => handleTip(post.id)}>
                 <AppIcon name='bone' />
@@ -161,6 +189,31 @@ export default function FeedPage() {
                 <Text className='post-caption-name'>{post.petName}</Text> {post.caption}
               </Text>
             </View>
+            {openComments === post.id && (
+              <View className='comment-thread'>
+                {(commentsByPost[post.id] || []).map((c) => (
+                  <View className='comment-item' key={c.id}>
+                    <Text className='comment-author'>{c.author}</Text>
+                    <Text className='comment-text'>{c.text}</Text>
+                    <Text className='comment-time'>{c.time}</Text>
+                  </View>
+                ))}
+                {(commentsByPost[post.id] || []).length === 0 && (
+                  <Text className='comment-empty'>还没有评论，来抢沙发</Text>
+                )}
+                <View className='comment-input-row'>
+                  <Input
+                    className='comment-input'
+                    placeholder='友善地说点什么...'
+                    value={commentDrafts[post.id] || ''}
+                    adjustPosition={false}
+                    onInput={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.detail.value }))}
+                    onConfirm={() => handleAddComment(post.id)}
+                  />
+                  <Text className='comment-send' onClick={() => handleAddComment(post.id)}>发送</Text>
+                </View>
+              </View>
+            )}
           </View>
         ))}
       </View>

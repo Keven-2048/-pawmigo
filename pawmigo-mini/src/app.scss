@@ -1348,6 +1348,79 @@ body {
   color: $fg;
 }
 
+.comment-thread {
+  padding: 16px;
+  border-top: 1.5px solid $border;
+  background: $surface-alt;
+}
+
+.comment-item {
+  padding: 10px 0;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.comment-author {
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: 900;
+  color: $fg;
+}
+
+.comment-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: $fg;
+}
+
+.comment-time {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: $muted;
+}
+
+.comment-empty {
+  display: block;
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: $muted;
+  text-align: center;
+}
+
+.comment-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.comment-input {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 12px;
+  border: $border-width solid $border;
+  border-radius: $radius-sm;
+  background: $surface;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.comment-send {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: $border-width solid $border;
+  border-radius: $radius-sm;
+  background: $accent;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: $shadow-sm;
+}
+
 .map-dot {
   position: absolute;
   width: 28px;
