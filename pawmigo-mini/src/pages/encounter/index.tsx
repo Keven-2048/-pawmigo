@@ -45,12 +45,18 @@ export default function EncounterPage() {
       <View className='app-content' style='padding:0;'>
         <View className={mode === 'radar' ? 'mode-content mode-content-active' : 'mode-content'}>
           <View className='radar-circle'>
+            <View className='radar-ring radar-ring-a' />
+            <View className='radar-ring radar-ring-b' />
+            <View className='radar-ring radar-ring-c' />
             <View className='radar-avatar'><AppIcon name='dog' /></View>
           </View>
-          <Text style='font-size:22px;font-weight:900;'>正在寻找附近的玩伴...</Text>
-          <Text className='text-muted' style='font-size:15px;margin-top:8px;'>
-            已发现 {candidates.length} 个正在遛狗的小伙伴
+          <Text style='font-size:22px;font-weight:900;'>
+            {loading ? '正在寻找附近的玩伴...' : '附近的玩伴已就位'}
           </Text>
+          <View className='radar-count'>
+            <Text className='radar-count-num'>{candidates.length}</Text>
+            <Text className='radar-count-label'>个正在遛狗的小伙伴</Text>
+          </View>
           <Button
             className='primary-button'
             type='primary'

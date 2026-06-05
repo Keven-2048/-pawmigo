@@ -1317,35 +1317,34 @@ body {
   box-shadow: $shadow-sm;
 }
 
-.lasso-map {
-  position: relative;
-  width: 100%;
-  height: 320px;
-  margin-bottom: 32px;
-  overflow: hidden;
-  border: $border-width solid $border;
-  border-radius: $radius-md;
-  background-color: $surface;
-  background-image:
-    linear-gradient($border 1px, transparent 1px),
-    linear-gradient(90deg, $border 1px, transparent 1px);
-  background-size: 30px 30px;
-  box-shadow: $shadow;
-}
+.radar-ring-a { animation-delay: 0s; }
+.radar-ring-b { animation-delay: 0.66s; }
+.radar-ring-c { animation-delay: 1.33s; }
 
-.lasso-hint {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  padding: 8px 16px;
+.radar-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 18px;
   border: $border-width solid $border;
   border-radius: $radius-sm;
   background: $accent-tertiary;
-  color: $fg;
-  font-size: 22px;
-  font-weight: 900;
   box-shadow: $shadow-sm;
+  transform: rotate(-1.5deg);
+}
+
+.radar-count-num {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  color: $fg;
+}
+
+.radar-count-label {
+  font-size: 15px;
+  font-weight: 900;
+  color: $fg;
 }
 
 .map-dot {
