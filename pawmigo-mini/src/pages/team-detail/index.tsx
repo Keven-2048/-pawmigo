@@ -56,6 +56,17 @@ export default function TeamDetailPage() {
     })
   }
 
+  const handleReport = () => {
+    Taro.showModal({
+      title: '举报队伍',
+      content: '确认举报该队伍存在违规内容？我们会尽快核实处理。',
+      confirmText: '举报',
+      success: (res) => {
+        if (res.confirm) Taro.showToast({ title: '已举报，感谢反馈', icon: 'success' })
+      },
+    })
+  }
+
   if (loading) {
     return (
       <View className='app-screen'>
@@ -87,13 +98,18 @@ export default function TeamDetailPage() {
         title={isJoined ? '我的队伍' : '队伍详情'}
         className='app-bar-yellow'
         left={<IconButton icon='arrow-left' tone='yellow' onClick={() => backOrHome('/pages/team/index')} />}
-        right={<IconButton icon='menu' tone='yellow' onClick={() => Taro.showActionSheet({
-          itemList: isJoined ? ['分享队伍', '队伍设置', '退出队伍'] : ['分享队伍', '举报队伍'],
-          success: (res) => {
-            if (isJoined && res.tapIndex === 2) handleLeave()
-            else Taro.showToast({ title: '功能即将上线', icon: 'none' })
-          },
-        })} />}
+        right={<IconButton icon='menu' tone='yellow' onClick={() => {
+          const itemList = isJoined ? ['分享队伍', '队伍设置', '退出队伍'] : ['分享队伍', '举报队伍']
+          Taro.showActionSheet({
+            itemList,
+            success: (res) => {
+              const action = itemList[res.tapIndex]
+              if (action === '退出队伍') handleLeave()
+              else if (action === '举报队伍') handleReport()
+              else Taro.showToast({ title: '功能即将上线', icon: 'none' })
+            },
+          })
+        }} />}
       />
       <View className='app-content' style='padding:0;'>
         <View className='team-detail-hero'>
