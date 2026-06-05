@@ -35,6 +35,7 @@ const pages = [
   'pages/safety-center/index',
   'pages/safety-privacy/index',
   'pages/emergency/index',
+  'pages/notification-settings/index',
   'pages/wallet/index',
   'pages/wallet-tasks/index',
   'pages/reward-shop/index',

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.swc/
 .env
 *.log
 .DS_Store
+pawmigo-mini/audit/

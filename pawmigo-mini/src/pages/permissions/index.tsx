@@ -13,9 +13,9 @@ export default function PermissionsPage() {
 
   return (
     <View className='app-screen'>
-      <View className='app-content' style='padding:40px 20px;'>
+      <View className='app-content permissions-content'>
         <Text className='title'>开启全功能体验</Text>
-        <Text className='muted' style='display:block;margin:12px 0 32px;'>
+        <Text className='muted permissions-lead'>
           为了让你和毛孩子能顺利偶遇，我们需要以下权限：
         </Text>
 
@@ -24,9 +24,9 @@ export default function PermissionsPage() {
             <View className='info-card-icon' style={`background:${item.tone};margin:0;width:44px;height:44px;`}>
               <AppIcon name={item.icon} />
             </View>
-            <View className='stack' style='gap:4px;'>
-              <Text style='font-weight:800;font-size:16px;'>{item.title}</Text>
-              <Text className='text-xs text-muted'>{item.desc}</Text>
+            <View className='perm-card-body'>
+              <Text className='perm-title'>{item.title}</Text>
+              <Text className='perm-desc'>{item.desc}</Text>
             </View>
           </View>
         ))}

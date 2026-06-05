@@ -14,6 +14,8 @@ interface AppState {
   likedPostIds: number[]
   boneBoosts: Record<number, number>
   joinedTeamIds: number[]
+  draftStickers: string[]
+  setDraftStickers: (stickers: string[]) => void
   setFilter: (filter: string) => void
   toggleWalking: () => void
   selectNearby: (id: number) => void
@@ -37,6 +39,8 @@ export const useAppStore = create<AppState>((set) => ({
   likedPostIds: [],
   boneBoosts: {},
   joinedTeamIds: [],
+  draftStickers: [],
+  setDraftStickers: (stickers) => set({ draftStickers: stickers }),
   setFilter: (filter) => set({ activeFilter: filter }),
   toggleWalking: () => set((state) => ({ isWalking: !state.isWalking })),
   selectNearby: (id) => set({ selectedNearbyId: id }),

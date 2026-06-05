@@ -3,6 +3,8 @@ import Taro from '@tarojs/taro'
 import { AppIcon } from '../../components/icons'
 import {
   AppBar,
+  ActionIconButton,
+  AvatarUploader,
   BottomNav,
   Chip,
   DSButton,
@@ -82,6 +84,8 @@ export default function DesignSystemPage() {
             <View className='preview-inline-row'>
               <DSButton variant='mini' active>社牛</DSButton>
               <DSButton variant='mini'>温顺</DSButton>
+              <ActionIconButton icon='heart' label='点赞' active tone='rose' />
+              <ActionIconButton icon='message' label='评论' tone='cyan' />
               <DSButton variant='circle' tone='pass'><AppIcon name='x' /></DSButton>
               <DSButton variant='circle' tone='super'><AppIcon name='star' /></DSButton>
               <DSButton variant='circle' tone='like'><AppIcon name='check' color='#ffffff' /></DSButton>
@@ -93,6 +97,9 @@ export default function DesignSystemPage() {
           <SectionHeader eyebrow='Components' title='卡片、表单、标签' />
           <SurfaceCard variant='form' className='stack'>
             <Text className='eyebrow tag-yellow'>Form</Text>
+            <View className='pet-form-avatar-row'>
+              <AvatarUploader />
+            </View>
             <Field placeholder='宠物昵称，例如：布丁' />
             <Field placeholder='宠物简介' textarea />
             <View className='chip-row'>

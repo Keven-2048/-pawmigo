@@ -24,7 +24,7 @@ export default function SettingsPage() {
               onClick={() => {
                 if (title === '账号与资料') openPage('/pages/profile/pet-form')
                 else if (title === '隐私与安全') openPage('/pages/safety-privacy/index')
-                else if (title === '通知设置') openPage('/pages/encounter-settings/index')
+                else if (title === '通知设置') openPage('/pages/notification-settings/index')
                 else Taro.showToast({ title: '已是最新版本', icon: 'none' })
               }}
             >

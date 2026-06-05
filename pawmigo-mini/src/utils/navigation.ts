@@ -41,6 +41,12 @@ export function openPage(url: string, options: { replace?: boolean; reset?: bool
   Taro.navigateTo({ url: target })
 }
 
+/** Read a URL query param from the current page's router. */
+export function getRouterParam(key: string): string {
+  const instance = Taro.getCurrentInstance()
+  return (instance.router?.params as Record<string, string> | undefined)?.[key] ?? ''
+}
+
 export function backOrHome(fallback = '/pages/map/index') {
   if (Taro.getCurrentPages().length > 1) {
     Taro.navigateBack()

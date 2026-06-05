@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build:h5": "taro build --type h5",
     "build:weapp": "taro build --type weapp",
+    "audit:weapp-ui": "node scripts/weapp-ui-audit.mjs",
+    "audit:weapp-ui:capture": "node scripts/weapp-ui-audit.mjs --skip-build --skip-routes --capture",
+    "audit:weapp-ui:open": "node scripts/weapp-ui-audit.mjs --open --screenshot",
     "check:routes": "node scripts/check-routes.mjs",
+    "dev:h5": "taro build --type h5 --watch",
     "dev:weapp": "taro build --type weapp --watch",
     "typecheck": "tsc --noEmit"
   },
@@ -13,6 +18,7 @@
     "@tarojs/components": "3.6.34",
     "@tarojs/helper": "3.6.34",
     "@tarojs/plugin-framework-react": "3.6.34",
+    "@tarojs/plugin-platform-h5": "3.6.34",
     "@tarojs/plugin-platform-weapp": "3.6.34",
     "@tarojs/react": "3.6.34",
     "@tarojs/runtime": "3.6.34",
@@ -25,6 +31,7 @@
     "zustand": "4.5.5"
   },
   "devDependencies": {
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.5.5",
     "@tarojs/cli": "3.6.34",
     "@types/react": "^18.2.79",
     "typescript": "^5.4.5",

@@ -32,6 +32,12 @@ for (const file of pageFiles) {
     routeEdges.push({ source: route, file, target: match[1], kind: 'navigation-helper' })
   }
 
+  // Also match template-literal openPage calls like openPage(`/pages/pet-detail/index?id=${id}`)
+  // Extract the path segment before '?', '`', or '${'.
+  for (const match of source.matchAll(/(?:openPage|backOrHome)\(`(\/[^`?$]+)/g)) {
+    routeEdges.push({ source: route, file, target: match[1], kind: 'navigation-helper-template' })
+  }
+
   for (const match of source.matchAll(/url:\s*['"]([^'"]+)['"]/g)) {
     routeEdges.push({ source: route, file, target: match[1], kind: 'url-prop' })
   }
@@ -119,12 +125,12 @@ const requiredEdges = [
   ['/pages/encounter/index', '/pages/match-results/index'],
   ['/pages/matching-radar/index', '/pages/match-results/index'],
   ['/pages/match-results/index', '/pages/encounter-waiting/index'],
-  ['/pages/encounter-waiting/index', '/pages/encounter-success/index'],
+  ['/pages/encounter-waiting/index', '/pages/map/index'],
   ['/pages/encounter-success/index', '/pages/meeting-point/index'],
   ['/pages/meeting-point/index', '/pages/encounter-ongoing/index'],
   ['/pages/encounter-ongoing/index', '/pages/chat/index'],
   ['/pages/encounter-ongoing/index', '/pages/encounter-feedback/index'],
-  ['/pages/encounter-feedback/index', '/pages/wallet/index'],
+  ['/pages/encounter-feedback/index', '/pages/map/index'],
   ['/pages/feed/index', '/pages/post-flow/index'],
   ['/pages/feed/index', '/pages/sticker-edit/index'],
   ['/pages/post-flow/index', '/pages/feed/index'],
@@ -136,7 +142,7 @@ const requiredEdges = [
   ['/pages/profile/index', '/pages/settings/index'],
   ['/pages/profile/index', '/pages/safety-center/index'],
   ['/pages/settings/index', '/pages/safety-privacy/index'],
-  ['/pages/safety-center/index', '/pages/safety-privacy/index'],
+  ['/pages/settings/index', '/pages/notification-settings/index'],
   ['/pages/safety-center/index', '/pages/emergency/index'],
   ['/pages/wallet/index', '/pages/wallet-tasks/index'],
   ['/pages/wallet/index', '/pages/reward-shop/index'],

@@ -1,5 +1,5 @@
 import {
-  AppNotification, ChatMessage, Comment, EncounterCandidate, FeedPost, NearbyPet,
+  AppNotification, ChatMessage, Comment, Encounter, EncounterCandidate, FeedPost, NearbyPet,
   Pet, SafetyItem, Settings, ShopItem, Team, Trophy, User, WalletTask, WalletTxn,
 } from '../services/api'
 
@@ -11,6 +11,10 @@ export interface SeedShape {
   comments: Comment[]
   teams: Team[]
   candidates: EncounterCandidate[]
+  /** In-progress encounter journey; persisted so a reload can recover it. */
+  activeEncounter: Encounter | null
+  /** Pet ids the user has blocked; filtered out of nearby discovery. */
+  blockedIds: number[]
   wallet: WalletTxn[]
   walletTasks: WalletTask[]
   shop: ShopItem[]
@@ -38,9 +42,9 @@ export function makeSeed(): SeedShape {
       { id: 204, name: '饼干', breed: '柯基', avatar: '柯', owner: '许先生', distance: '820m', minutes: 12, size: '小型', personality: ['社牛', '短腿飞毛腿'], route: '社区花园', lng: 121.485, lat: 31.234 },
     ],
     posts: [
-      { id: 301, petName: '奶盖', breed: '比熊', location: '口袋公园', caption: '今天主动学会把球叼回来了，奖励一整圈草坪巡逻。', mediaTone: 'park', stickers: ['比熊专属', '今日上墙'], likes: 48, bones: 19, comments: 7, liked: false },
-      { id: 302, petName: '黑糖', breed: '拉布拉多', location: '滨江慢跑道', caption: '5 公里陪跑结束，回家前还想再找朋友玩十分钟。', mediaTone: 'river', stickers: ['运动健将', '骨头补给'], likes: 73, bones: 34, comments: 12, liked: false },
-      { id: 303, petName: '饼干', breed: '柯基', location: '社区花园', caption: '短腿天团集合成功，今日队形：三角形。', mediaTone: 'sunset', stickers: ['短腿天团', '社牛'], likes: 62, bones: 27, comments: 9, liked: false },
+      { id: 301, petId: 202, petName: '奶盖', breed: '比熊', location: '口袋公园', caption: '今天主动学会把球叼回来了，奖励一整圈草坪巡逻。', mediaTone: 'park', stickers: ['比熊专属', '今日上墙'], likes: 48, bones: 19, comments: 7, liked: false, time: '15分钟前' },
+      { id: 302, petId: 203, petName: '黑糖', breed: '拉布拉多', location: '滨江慢跑道', caption: '5 公里陪跑结束，回家前还想再找朋友玩十分钟。', mediaTone: 'river', stickers: ['运动健将', '骨头补给'], likes: 73, bones: 34, comments: 12, liked: false, time: '1小时前' },
+      { id: 303, petId: 204, petName: '饼干', breed: '柯基', location: '社区花园', caption: '短腿天团集合成功，今日队形：三角形。', mediaTone: 'sunset', stickers: ['短腿天团', '社牛'], likes: 62, bones: 27, comments: 9, liked: false, time: '2小时前' },
     ],
     comments: [
       { id: 3001, postId: 301, author: '小周', text: '太棒了！下次一起遛', time: '10分钟前' },
@@ -57,6 +61,8 @@ export function makeSeed(): SeedShape {
       { id: 502, name: '饼干', breed: '柯基', distance: '820m', score: 91, reason: '同品种，短跑偏好一致', meetup: '社区花园喷泉旁', window: '19:00-19:20' },
       { id: 503, name: '阿黄', breed: '柴犬', distance: '260m', score: 88, reason: '距离最近，活跃时间吻合', meetup: '梧桐道北段入口', window: '18:30-19:00' },
     ],
+    activeEncounter: null,
+    blockedIds: [],
     wallet: [
       { id: 6001, title: '完成一次偶遇反馈', amount: 12, time: '今天 18:20' },
       { id: 6002, title: '给大福投喂骨头', amount: -8, time: '昨天 20:12' },

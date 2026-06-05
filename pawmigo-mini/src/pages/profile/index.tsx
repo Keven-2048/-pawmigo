@@ -1,16 +1,30 @@
 import { Button, Text, View } from '@tarojs/components'
 import { AppIcon, IconName } from '../../components/icons'
 import { AppBar, IconButton, MainNav } from '../../components/ui'
+import { useSessionStore } from '../../store/sessionStore'
 import { openPage } from '../../utils/navigation'
-
-const menu = [
-  { title: '骨头钱包', meta: '128 >', highlight: true, url: '/pages/wallet/index', icon: 'wallet' },
-  { title: '荣誉奖杯墙', meta: '已获得 5 枚 >', url: '/pages/trophy-wall/index', icon: 'trophy' },
-  { title: '我的队伍', meta: '3 个 >', url: '/pages/team/index', icon: 'team' },
-  { title: '设置', meta: '>', url: '/pages/settings/index', icon: 'settings' },
-] satisfies Array<{ title: string; meta: string; highlight?: boolean; url?: string; icon: IconName }>
+import { useRequireAuth } from '../../utils/useRequireAuth'
 
 export default function ProfilePage() {
+  useRequireAuth()
+  const user = useSessionStore((s) => s.user)
+  const pets = useSessionStore((s) => s.pets)
+  const activePetId = useSessionStore((s) => s.activePetId)
+  const logout = useSessionStore((s) => s.logout)
+  const pet = pets.find((p) => p.id === activePetId) ?? pets[0]
+
+  const menu = [
+    { title: '骨头钱包', meta: `${user?.boneBalance ?? 0} >`, highlight: true, url: '/pages/wallet/index', icon: 'wallet' as IconName },
+    { title: '荣誉奖杯墙', meta: '查看奖杯 >', url: '/pages/trophy-wall/index', icon: 'trophy' as IconName },
+    { title: '我的队伍', meta: `${pets.length > 0 ? pets.length : 0} 只宠物 >`, url: '/pages/team/index', icon: 'team' as IconName },
+    { title: '设置', meta: '>', url: '/pages/settings/index', icon: 'settings' as IconName },
+  ]
+
+  const handleLogout = () => {
+    logout()
+    openPage('/pages/splash/index', { reset: true })
+  }
+
   return (
     <View className='app-screen'>
       <AppBar
@@ -21,19 +35,20 @@ export default function ProfilePage() {
       <View className='app-content' style='padding:0;'>
         <View className='profile-header'>
           <View className='profile-avatar'><AppIcon name='dog' /></View>
-          <Text style='font-size:28px;font-weight:900;'>球球</Text>
+          <Text style='font-size:28px;font-weight:900;'>{pet?.name ?? '添加宠物'}</Text>
           <View className='row' style='justify-content:center;gap:8px;margin-top:12px;'>
-            <Text className='tag tag-yellow'>社牛</Text>
-            <Text className='tag tag-blue'>运动健将</Text>
+            {pet?.personality.map((tag, index) => (
+              <Text className={index === 0 ? 'tag tag-yellow' : 'tag tag-blue'} key={tag}>{tag}</Text>
+            ))}
           </View>
           <View className='row' style='justify-content:center;gap:16px;margin-top:20px;'>
             <View style='text-align:center;'>
-              <Text style='display:block;font-weight:900;font-size:18px;'>86</Text>
+              <Text style='display:block;font-weight:900;font-size:18px;'>{pet?.boneCount ?? 0}</Text>
               <Text className='text-xs text-muted'>获赠骨头</Text>
             </View>
             <View style='text-align:center;'>
-              <Text style='display:block;font-weight:900;font-size:18px;'>32</Text>
-              <Text className='text-xs text-muted'>偶遇次数</Text>
+              <Text style='display:block;font-weight:900;font-size:18px;'>{user?.boneBalance ?? 0}</Text>
+              <Text className='text-xs text-muted'>钱包余额</Text>
             </View>
           </View>
         </View>
@@ -55,7 +70,7 @@ export default function ProfilePage() {
         ))}
 
         <View style='padding:32px 24px;'>
-          <Button className='secondary-button' onClick={() => openPage('/pages/splash/index', { reset: true })}>
+          <Button className='secondary-button' onClick={handleLogout}>
             退出登录
           </Button>
         </View>

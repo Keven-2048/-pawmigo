@@ -65,6 +65,7 @@ export interface Comment {
 
 export interface FeedPost {
   id: number
+  petId: number
   petName: string
   breed: string
   location: string
@@ -75,6 +76,7 @@ export interface FeedPost {
   bones: number
   comments: number
   liked: boolean
+  time: string
 }
 
 export interface PostInput {
@@ -94,6 +96,7 @@ export interface Team {
   schedule: string
   vibe: string
   joined: boolean
+  signedUp?: boolean
 }
 
 export interface TeamInput {
@@ -115,7 +118,7 @@ export interface EncounterCandidate {
 }
 
 export type EncounterStatus = 'waiting' | 'accepted' | 'meeting' | 'ongoing' | 'done'
-export type EncounterMode = 'radar' | 'lasso' | 'swipe'
+export type EncounterMode = 'radar' | 'swipe'
 
 export interface Encounter {
   id: number

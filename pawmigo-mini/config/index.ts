@@ -14,6 +14,15 @@ export default {
   outputRoot: 'dist',
   framework: 'react',
   compiler: 'webpack5',
+  copy: {
+    patterns: [
+      {
+        from: 'src/assets/map-marker.png',
+        to: 'dist/assets/map-marker.png',
+      },
+    ],
+    options: {},
+  },
   mini: {
     postcss: {
       pxtransform: {
@@ -29,5 +38,15 @@ export default {
       },
     },
   },
-  h5: {},
+  h5: {
+    publicPath: '/',
+    router: {
+      mode: 'hash',
+    },
+    devServer: {
+      host: '127.0.0.1',
+      port: 10086,
+      open: false,
+    },
+  },
 } satisfies UserConfigExport

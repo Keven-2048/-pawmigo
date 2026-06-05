@@ -68,6 +68,55 @@ export function IconButton({ label, icon, tone = 'yellow', onClick, className }:
   )
 }
 
+interface ActionIconButtonProps {
+  icon: IconName
+  label: string
+  active?: boolean
+  tone?: Extract<Tone, 'yellow' | 'cyan' | 'rose' | 'green' | 'plain'>
+  onClick?: () => void
+  className?: string
+}
+
+export function ActionIconButton({
+  icon,
+  label,
+  active,
+  tone = 'plain',
+  onClick,
+  className,
+}: ActionIconButtonProps) {
+  return (
+    <View
+      className={cx(
+        'action-icon-button',
+        active && 'action-icon-button-active',
+        tone !== 'plain' && `action-icon-button-${tone === 'cyan' ? 'blue' : tone}`,
+        className,
+      )}
+      onClick={onClick}
+    >
+      <AppIcon name={icon} color={active ? '#ffffff' : '#000000'} />
+      <Text className='visually-hidden'>{label}</Text>
+    </View>
+  )
+}
+
+interface AvatarUploaderProps {
+  icon?: IconName
+  onClick?: () => void
+}
+
+export function AvatarUploader({ icon = 'dog', onClick }: AvatarUploaderProps) {
+  return (
+    <View className='avatar-uploader' onClick={onClick}>
+      <AppIcon name={icon} color='#6b7280' className='avatar-uploader-icon' />
+      <View className='avatar-uploader-badge'>
+        <AppIcon name='camera' color='#ffffff' />
+      </View>
+    </View>
+  )
+}
+
 interface SectionHeaderProps {
   eyebrow?: string
   title: string
@@ -264,6 +313,7 @@ export function Field({
         className={cx('textarea', className)}
         placeholder={placeholder}
         value={value}
+        adjustPosition={false}
         onInput={(event) => onInput?.(event.detail.value)}
       />
     )
@@ -275,6 +325,7 @@ export function Field({
       type={type}
       placeholder={placeholder}
       value={value}
+      adjustPosition={false}
       onInput={(event) => onInput?.(event.detail.value)}
     />
   )

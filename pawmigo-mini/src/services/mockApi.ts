@@ -9,9 +9,6 @@ import {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v))
 const now = () => new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 
-// Active in-progress encounter kept in module memory (not persisted).
-let activeEncounter: Encounter | null = null
-
 export const mockApi = {
   // --- auth / pet ---
   async wxLogin(_code: string): Promise<LoginResult> {
@@ -24,8 +21,19 @@ export const mockApi = {
   },
   async getPet(id: number): Promise<Pet> {
     await delay(TIMINGS.fast)
-    const pet = db.pets.find((p) => p.id === id) || db.pets[0]
-    return clone(pet)
+    // Search user's own pets first, then convert nearby pets to Pet shape
+    const own = db.pets.find((p) => p.id === id)
+    if (own) return clone(own)
+    // Resolve from nearby — convert NearbyPet to Pet-like shape
+    const nb = db.nearby.find((p) => p.id === id)
+    if (nb) {
+      return {
+        id: nb.id, ownerId: 0, name: nb.name, breed: nb.breed,
+        gender: '男', age: 2, personality: nb.personality, bio: `常走路线：${nb.route}`,
+        boneCount: 0,
+      }
+    }
+    return clone(db.pets[0])
   },
   async createPet(input: PetInput): Promise<Pet> {
     await delay(TIMINGS.normal)
@@ -51,7 +59,7 @@ export const mockApi = {
   async getNearbyWalkers(filter?: MapFilter): Promise<NearbyPet[]> {
     await delay(TIMINGS.normal)
     if (maybeFail()) throw new Error('附近信号弱，请重试')
-    let list = db.nearby
+    let list = db.nearby.filter((p) => !db.blockedIds.includes(p.id))
     if (filter?.size && filter.size !== '全部') list = list.filter((p) => p.size === filter.size)
     if (filter?.personality && filter.personality !== '全部') {
       list = list.filter((p) => p.personality.includes(filter.personality as string))
@@ -64,50 +72,82 @@ export const mockApi = {
   },
 
   // --- encounter ---
-  async getCandidates(_mode: EncounterMode): Promise<EncounterCandidate[]> {
+  async getCandidates(mode: EncounterMode): Promise<EncounterCandidate[]> {
     await delay(TIMINGS.scan)
-    return clone(db.candidates)
+    const list = clone(db.candidates)
+    // Simulate mode differences: radar shows all, swipe picks one
+    if (mode === 'swipe') return list.slice(0, 1)
+    return list
+  },
+  async getActiveEncounter(): Promise<Encounter | null> {
+    await delay(TIMINGS.fast)
+    return clone(db.activeEncounter)
   },
   async createEncounter(targetId: number): Promise<Encounter> {
     await delay(TIMINGS.fast)
     const target = db.candidates.find((c) => c.id === targetId)
-    activeEncounter = {
+    db.activeEncounter = {
       id: nextId(), targetId, targetName: target?.name || '伙伴',
       status: 'waiting', meetingPoint: target?.meetup || '附近公园', distanceLeft: 120,
       createdAt: Date.now(),
     }
-    return clone(activeEncounter)
+    persistDb()
+    return clone(db.activeEncounter)
   },
   async acceptEncounter(id: number): Promise<Encounter> {
     await delay(TIMINGS.fast)
-    if (!activeEncounter || activeEncounter.id !== id) throw new Error('邀约已失效')
-    activeEncounter.status = 'accepted'
-    return clone(activeEncounter)
+    if (!db.activeEncounter || db.activeEncounter.id !== id) throw new Error('邀约已失效')
+    db.activeEncounter.status = 'accepted'
+    persistDb()
+    return clone(db.activeEncounter)
   },
   async confirmMeetingPoint(id: number, point: string): Promise<Encounter> {
     await delay(TIMINGS.fast)
-    if (!activeEncounter || activeEncounter.id !== id) throw new Error('邀约已失效')
-    activeEncounter.status = 'meeting'
-    activeEncounter.meetingPoint = point
-    return clone(activeEncounter)
+    if (!db.activeEncounter || db.activeEncounter.id !== id) throw new Error('邀约已失效')
+    db.activeEncounter.status = 'meeting'
+    db.activeEncounter.meetingPoint = point
+    persistDb()
+    return clone(db.activeEncounter)
+  },
+  async cancelEncounter(id: number): Promise<void> {
+    await delay(TIMINGS.fast)
+    if (db.activeEncounter && db.activeEncounter.id === id) {
+      db.activeEncounter = null
+      persistDb()
+    }
   },
   async submitFeedback(id: number, rating: number, _tags: string[]): Promise<Encounter> {
     await delay(TIMINGS.normal)
-    if (!activeEncounter || activeEncounter.id !== id) throw new Error('邀约已失效')
-    activeEncounter.status = 'done'
+    if (!db.activeEncounter || db.activeEncounter.id !== id) throw new Error('邀约已失效')
+    db.activeEncounter.status = 'done'
     const reward = 12
     db.wallet.unshift({ id: nextId(), title: '完成一次偶遇反馈', amount: reward, time: '刚刚' })
     db.user.boneBalance += reward
+    const result = clone(db.activeEncounter)
+    db.activeEncounter = null
     persistDb()
-    const result = clone(activeEncounter)
-    activeEncounter = null
     return result
+  },
+  async reportPet(id: number, _reason?: string): Promise<{ reported: boolean }> {
+    await delay(TIMINGS.fast)
+    // Mock: report is recorded as a no-persist acknowledgement.
+    return { reported: db.nearby.some((p) => p.id === id) }
+  },
+  async blockPet(id: number): Promise<{ blockedIds: number[] }> {
+    await delay(TIMINGS.fast)
+    if (!db.blockedIds.includes(id)) db.blockedIds.push(id)
+    persistDb()
+    return { blockedIds: clone(db.blockedIds) }
   },
 
   // --- feed ---
-  async getFeed(_tab: string): Promise<FeedPost[]> {
+  async getFeed(tab: string): Promise<FeedPost[]> {
     await delay(TIMINGS.normal)
-    return clone(db.posts)
+    // Basic tab simulation: shuffle order slightly per tab
+    const list = clone(db.posts)
+    if (tab === '热门') list.sort((a, b) => b.likes - a.likes)
+    if (tab === '关注') return list.slice(0, 2) // fewer posts for "following"
+    return list
   },
   async likePost(id: number): Promise<FeedPost> {
     await delay(TIMINGS.fast)
@@ -146,9 +186,9 @@ export const mockApi = {
     await delay(TIMINGS.normal)
     const pet = db.pets[0]
     const post: FeedPost = {
-      id: nextId(), petName: pet?.name || '我的宝贝', breed: pet?.breed || '',
+      id: nextId(), petId: pet?.id || 0, petName: pet?.name || '我的宝贝', breed: pet?.breed || '',
       location: input.location, caption: input.caption, mediaTone: input.mediaTone,
-      stickers: input.stickers, likes: 0, bones: 0, comments: 0, liked: false,
+      stickers: input.stickers, likes: 0, bones: 0, comments: 0, liked: false, time: '刚刚',
     }
     db.posts.unshift(post)
     persistDb()
@@ -190,6 +230,14 @@ export const mockApi = {
       members: 1, activity: '新队伍招募中', schedule: input.schedule, vibe: '刚刚成立', joined: true,
     }
     db.teams.unshift(t)
+    persistDb()
+    return clone(t)
+  },
+  async signupActivity(teamId: number): Promise<Team> {
+    await delay(TIMINGS.fast)
+    const t = db.teams.find((x) => x.id === teamId)
+    if (!t) throw new Error('队伍不存在')
+    if (!t.signedUp) { t.signedUp = true; t.members += 1 }
     persistDb()
     return clone(t)
   },
