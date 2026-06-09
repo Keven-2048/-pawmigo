@@ -10,6 +10,9 @@ Current product phase remains: WeChat Mini Program MVP + Mock first + P0 user jo
 The user accepted the current visual baseline on 2026-06-09; continue with project-plan/P0 functional work rather than further one-to-one prototype restoration unless new visual feedback is provided.
 Code-level final handoff checks are current as of 2026-06-10.
 The user manually completed the WeChat Developer Tools P0 walkthrough on 2026-06-10 and asked to continue; no new blocking defect was reported in that handoff message.
+The user selected the next phase on 2026-06-10: real API / Go backend integration preparation.
+The approved next-phase direction is documented in `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md`.
+Next phase should start with frontend remote adapter plus a Go Gin P0 in-memory backend skeleton; do not jump directly to MySQL, Redis, Docker Compose, admin app, or production WeChat API.
 ```
 
 ## Current Active Visual Constants
