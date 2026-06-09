@@ -15,7 +15,8 @@ export default defineConfig<'webpack5'>(async () => {
     outputRoot: 'dist',
     plugins: [],
     defineConstants: {
-      'process.env.TARO_APP_API_MODE': JSON.stringify(process.env.TARO_APP_API_MODE || 'mock')
+      'process.env.TARO_APP_API_MODE': JSON.stringify(process.env.TARO_APP_API_MODE || 'mock'),
+      'process.env.TARO_APP_API_BASE_URL': JSON.stringify(process.env.TARO_APP_API_BASE_URL || 'http://localhost:8080')
     },
     copy: {
       patterns: [
