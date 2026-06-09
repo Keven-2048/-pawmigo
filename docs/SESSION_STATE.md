@@ -13,7 +13,8 @@ The user manually completed the WeChat Developer Tools P0 walkthrough on 2026-06
 The user selected the next phase on 2026-06-10: real API / Go backend integration preparation.
 The approved next-phase direction is documented in `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md`.
 The implementation plan is documented in `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md`.
-Next phase should start with frontend remote adapter plus a Go Gin P0 in-memory backend skeleton; do not jump directly to MySQL, Redis, Docker Compose, admin app, or production WeChat API.
+Frontend remote adapter and Go Gin P0 in-memory backend skeleton have been implemented on branch `codex/remote-api-go-skeleton`.
+Do not jump directly to MySQL, Redis, Docker Compose, admin app, or production WeChat API unless the user explicitly opens that future phase.
 ```
 
 ## Current Active Visual Constants
@@ -40,6 +41,20 @@ If chat history is unavailable, continue from these files.
 
 ## Completed
 
+- Implemented frontend remote API mode:
+  - split services into contracts, mock adapter, remote client, and remote adapter
+  - added `TARO_APP_API_BASE_URL` compile-time constant
+  - kept pages/stores dependent on `@/services`
+  - added tests for mode selection, route mapping, Authorization header handling, API envelope unwrapping, business errors, and 401 token clearing
+- Implemented `backend/api` Go Gin P0 backend skeleton:
+  - health check
+  - development login token
+  - auth middleware
+  - JSON response wrapper
+  - in-memory store
+  - P0 routes for user, privacy, pets, location, nearby, invites, posts, comments, reports, and blocks
+  - route and smoke tests for core P0 business rules
+  - direct-ID block enforcement so historical invite details, invite actions, and post comments cannot bypass blocked-user visibility rules
 - Confirmed repository was a new project with only requirement and technical documents.
 - Confirmed Stitch MCP connectivity and identified the PetCircle prototype project.
 - Confirmed approved product implementation scope:
@@ -579,17 +594,18 @@ No product code is currently in progress after this checkpoint.
 
 ## Next Recommended Step
 
-Prepare the current MVP for handoff or version-control integration:
+Prepare the remote API / Go P0 backend skeleton phase for PR handoff:
 
-1. Keep the current MVP scope frozen unless the user explicitly opens a new phase.
-2. If a defect appears, fix only the current MVP surface through the service layer and add/adjust regression coverage.
-3. Keep the current visual baseline unless the user provides new visual feedback.
-4. Do not expand into message center, following/friend system, Go backend, admin app, Docker, or real API integration without explicit scope approval.
-5. Before committing or handing off, review `git status --short --branch --untracked-files=all` because most scaffold files are still untracked.
+1. Commit the current backend/docs changes on `codex/remote-api-go-skeleton`.
+2. Push the branch and open a PR for the remote API preparation phase.
+3. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
+4. Next development phase should be chosen explicitly by the user before starting MySQL/Redis persistence, Docker Compose, production WeChat login, upload/COS, admin app, message center, chat, or follow/friend work.
+5. If a defect appears before PR merge, fix only the remote adapter or Go in-memory P0 backend surface and add/adjust regression coverage.
 
 ## Known Constraints
 
-- Do not implement Go backend, MySQL/Redis, Docker Compose, or React admin app in the current phase unless the user explicitly changes scope.
+- The current approved Go backend work is limited to `backend/api` P0 in-memory skeleton and contract validation.
+- Do not implement MySQL/Redis, Docker Compose, React admin app, production WeChat login, upload/COS, message center, chat, or follow/friend features unless the user explicitly changes scope.
 - Do not modify `功能需求.md` or `技术文档.md` unless explicitly requested.
 - Do not wire pages directly to Mock data; use `services/*`.
 - Use Stitch project `projects/5635601718767463341` for visual direction.
@@ -602,15 +618,30 @@ Prepare the current MVP for handoff or version-control integration:
 Latest verification run:
 
 ```sh
+cd backend/api
+go test ./...
+
 cd frontend/pet-social-mini
 npm run typecheck && npm run build:weapp && npm test
+
+TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp
+
+cd backend/api
+go build -o /tmp/pawmigo-api-smoke ./cmd/server
+/tmp/pawmigo-api-smoke
+curl -fsS http://localhost:8080/healthz
+curl -fsS -X POST http://localhost:8080/api/v1/auth/wechat-login -H 'Content-Type: application/json' -d '{"code":"dev-login-code"}'
 ```
 
 Results:
 
+- `go test ./...` passed for `backend/api`.
+- Local backend build/start smoke passed; `/healthz` and `/api/v1/auth/wechat-login` returned standard `{ code: 0, message: "ok" }` responses.
+- Port `8080` was checked after smoke and no listener remained.
 - `npm run typecheck` passed.
-- `npm run build:weapp` passed without warnings and generated `frontend/pet-social-mini/dist`.
-- `npm test` passed with 89 Node test cases covering:
+- `npm run build:weapp` passed and generated `frontend/pet-social-mini/dist`.
+- Remote-mode `TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp` passed.
+- `npm test` passed with 95 Node test cases covering:
   - no Unsplash image-domain dependencies in static source
   - local Mock image assets exist in the compiled WeChat package
   - pages/stores use the service layer instead of Mock internals
@@ -730,5 +761,6 @@ Results:
 - The real-device runtime crash was fixed at the generated-bundle pattern level, and the user manually completed the WeChat Developer Tools P0 walkthrough on 2026-06-10 without reporting a new blocker in the continuation message.
 - The latest duplicate-navigation, 280px capsule-safe appbar, proportion, icon-centering, Nearby main icons, secondary settings scale, custom settings switches, block-list finished-state rows, pet-management visibility/default row semantics, card metadata icon alignment, post-detail composer, pet-detail layout, invite-detail status scale, and sticky-button fixes are verified in source/build/test outputs and have passed the user's latest manual P0 walkthrough checkpoint.
 - Current Mock image assets now use compressed local JPEG pet/owner photography for primary visuals; production should move uploaded pet/post media to the approved upload/COS flow later.
+- `backend/api` is intentionally an in-memory contract-validation backend. Production persistence, real WeChat login, upload/COS, and deployment topology still need explicit future-phase approval.
 - Superpowers skills are available as local skill files in this session. There is no separate `Skill` tool exposed, so the skill instructions were read from disk and followed with local shell/edit tooling.
 - CodeGraph MCP is configured in `AGENTS.md`, but this repository currently has no `.codegraph/` index initialized. Use native search/read until the user approves initializing it.

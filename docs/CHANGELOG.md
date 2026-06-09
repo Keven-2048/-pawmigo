@@ -5,6 +5,16 @@
 - Opened the next-phase design direction after the Mock-first mini-program MVP delivery.
 - Added `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md` for the approved real API / Go backend integration preparation phase.
 - Added `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md` to guide implementation with TDD checkpoints and verification commands.
+- Added frontend remote service mode with service contracts, Mock adapter, Taro request client, remote adapter, and API envelope handling.
+- Added `TARO_APP_API_BASE_URL` compile-time replacement so WeChat bundles can be built in remote mode without Node `process` references.
+- Added frontend regression tests for service mode selection, remote request URL/header behavior, API error normalization, 401 token clearing, and P0 endpoint mapping.
+- Added `backend/api` Go Gin P0 backend skeleton with development login, auth middleware, response wrapper, in-memory store, P0 routes, and route/smoke tests.
+- Verified the Go backend can start locally and respond to `/healthz` and `/api/v1/auth/wechat-login`.
+- Tightened Go backend blocked-user rule enforcement so direct invite-detail, invite-action, and post-comment endpoints cannot bypass block visibility.
+- Replaced temporary handwritten Go number-format helpers with standard `strconv` usage in backend code/tests.
+- Verified `backend/api` with `go test ./...`, local server build/start smoke, and no remaining `:8080` listener after cleanup.
+- Verified the mini-program in Mock mode with `npm run typecheck && npm run build:weapp && npm test`; 95 Node tests passed.
+- Verified remote mini-program compilation with `TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp`.
 - Updated `docs/SESSION_STATE.md` so future sessions know the next phase is frontend remote adapter plus Go Gin P0 in-memory backend skeleton, not full database/admin/Docker production work.
 
 ## 2026-06-06
