@@ -4,6 +4,7 @@
 
 - Opened the next-phase design direction after the Mock-first mini-program MVP delivery.
 - Added `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md` for the approved real API / Go backend integration preparation phase.
+- Added `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md` to guide implementation with TDD checkpoints and verification commands.
 - Updated `docs/SESSION_STATE.md` so future sessions know the next phase is frontend remote adapter plus Go Gin P0 in-memory backend skeleton, not full database/admin/Docker production work.
 
 ## 2026-06-06
