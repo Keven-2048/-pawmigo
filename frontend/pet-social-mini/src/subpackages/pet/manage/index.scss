@@ -1,0 +1,391 @@
+.pet-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-top: 96px;
+}
+
+.pet-manage__topbar {
+  display: grid;
+  grid-template-columns: 100px 1fr 128px;
+  align-items: center;
+  min-height: 96px;
+}
+
+.pet-manage__back,
+.pet-manage__add {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.pet-manage__back {
+  width: 80px;
+  height: 80px;
+  transform: none;
+}
+
+.pet-manage__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 34px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pet-manage__add {
+  height: 80px;
+  line-height: 80px;
+  text-align: right;
+}
+
+.pet-manage__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 154px;
+  padding: 28px 32px;
+  border-radius: 24px;
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+  box-shadow: 0 10px 22px rgba(50, 107, 0, 0.18);
+  box-shadow: var(--shadow-action, 0 10px 22px rgba(50, 107, 0, 0.18));
+}
+
+.pet-manage__summary-label,
+.pet-manage__summary-count {
+  display: block;
+  color: #fff;
+}
+
+.pet-manage__summary-label {
+  font-size: 23px;
+  font-weight: 600;
+  opacity: 0.82;
+}
+
+.pet-manage__summary-count {
+  margin-top: 8px;
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.pet-manage__summary-paw {
+  position: relative;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.pet-manage__summary-dot,
+.pet-manage__summary-pad {
+  position: absolute;
+  background: #fff;
+}
+
+.pet-manage__summary-dot {
+  width: 9px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.pet-manage__summary-dot--one {
+  left: 21px;
+  top: 19px;
+  transform: rotate(-20deg);
+}
+
+.pet-manage__summary-dot--two {
+  left: 31px;
+  top: 15px;
+}
+
+.pet-manage__summary-dot--three {
+  right: 21px;
+  top: 20px;
+  transform: rotate(20deg);
+}
+
+.pet-manage__summary-pad {
+  left: 24px;
+  top: 36px;
+  width: 24px;
+  height: 18px;
+  border-radius: 15px 15px 12px 12px;
+}
+
+.pet-manage__list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.pet-manage__card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+}
+
+.pet-manage__card-main {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.pet-manage__avatar {
+  flex: 0 0 122px;
+  width: 122px;
+  height: 122px;
+  border-radius: 28px;
+  background: #f2f5e7;
+  background: var(--color-surface-soft, #f2f5e7);
+}
+
+.pet-manage__copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pet-manage__name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pet-manage__name {
+  max-width: 250px;
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 34px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pet-manage__default {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: rgba(254, 178, 70, 0.18);
+  background: var(--color-secondary-soft, rgba(254, 178, 70, 0.18));
+  color: #845400;
+  color: var(--color-secondary, #845400);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 34px;
+}
+
+.pet-manage__meta {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 25px;
+}
+
+.pet-manage__edit {
+  --ui-icon-offset: 17px;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  transform: none;
+}
+
+.pet-manage__visibility {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 78px;
+  padding: 22px 0 0;
+  border-top: 1px solid rgba(193, 201, 181, 0.3);
+  border-top: 1px solid var(--color-outline-soft, rgba(193, 201, 181, 0.3));
+}
+
+.pet-manage__visibility-icon {
+  --ui-icon-offset: 9px;
+  width: 56px;
+  height: 56px;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+  transform-origin: center;
+}
+
+.pet-manage__visibility-text {
+  flex: 1;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 25px;
+}
+
+.pet-manage__toggle {
+  position: relative;
+  flex: 0 0 82px;
+  width: 82px;
+  height: 44px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: #e6eadc;
+  background: var(--color-surface-high, #e6eadc);
+}
+
+.pet-manage__toggle--active {
+  background: #76b947;
+  background: var(--color-primary-container, #76b947);
+}
+
+.pet-manage__toggle-dot {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 29, 21, 0.16);
+}
+
+.pet-manage__toggle--active .pet-manage__toggle-dot {
+  left: 44px;
+}
+
+.pet-manage__toggle--disabled {
+  opacity: 0.58;
+}
+
+.pet-manage__manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 62px;
+  padding-top: 2px;
+}
+
+.pet-manage__default-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 23px;
+  font-weight: 500;
+}
+
+.pet-manage__default-icon {
+  --ui-icon-offset: 9px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
+
+.pet-manage__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
+.pet-manage__text-action,
+.pet-manage__danger-link {
+  min-width: 0;
+  height: 56px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 56px;
+}
+
+.pet-manage__text-action {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.pet-manage__danger-link {
+  color: #ba1a1a;
+  color: var(--color-danger, #ba1a1a);
+}
+
+.pet-manage__empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 46px 0 18px;
+}
+
+.pet-manage__empty-icon {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  color: #c1c9b5;
+  color: var(--color-outline, #c1c9b5);
+}
+
+.pet-manage__empty-dot,
+.pet-manage__empty-pad {
+  position: absolute;
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+}
+
+.pet-manage__empty-dot {
+  width: 9px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.pet-manage__empty-dot--one {
+  left: 21px;
+  top: 19px;
+  transform: rotate(-20deg);
+}
+
+.pet-manage__empty-dot--two {
+  left: 31px;
+  top: 15px;
+}
+
+.pet-manage__empty-dot--three {
+  right: 21px;
+  top: 20px;
+  transform: rotate(20deg);
+}
+
+.pet-manage__empty-pad {
+  left: 24px;
+  top: 36px;
+  width: 24px;
+  height: 18px;
+  border-radius: 15px 15px 12px 12px;
+}
+
+.pet-manage__empty-copy {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+}

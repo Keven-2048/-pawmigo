@@ -1,0 +1,108 @@
+.invite-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 96px 40px 128px;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+}
+
+.invite-page__appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+}
+
+.invite-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.invite-page__pin,
+.invite-page__search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.invite-page__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-family: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-display, "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 40px;
+  font-weight: 600;
+}
+
+.invite-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  padding: 10px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: #f2f5e7;
+  background: var(--color-surface-soft, #f2f5e7);
+}
+
+.invite-tab {
+  height: 76px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 76px;
+  text-align: center;
+}
+
+.invite-tab--active {
+  background: #fff;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  box-shadow: 0 8px 40px rgba(118, 185, 71, 0.08);
+  box-shadow: var(--shadow-card, 0 8px 40px rgba(118, 185, 71, 0.08));
+}
+
+.invite-filter-chips {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.invite-filter-chip {
+  flex-shrink: 0;
+  min-height: 62px;
+  padding: 0 28px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: #fff;
+  background: var(--color-surface, #fff);
+  border: 1px solid rgba(193, 201, 181, 0.18);
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 62px;
+}
+
+.invite-filter-chip--active {
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+  border-color: #326b00;
+  color: #fff;
+}
+
+.invite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}

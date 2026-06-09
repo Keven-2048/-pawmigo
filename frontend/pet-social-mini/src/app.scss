@@ -1,0 +1,145 @@
+@use './assets/styles/theme.scss' as *;
+@use './components/EmptyState/index.scss' as *;
+@use './components/InviteCard/index.scss' as *;
+@use './components/PetCard/index.scss' as *;
+@use './components/PostCard/index.scss' as *;
+@use './components/Section/index.scss' as *;
+@use './components/TagList/index.scss' as *;
+@use './components/TopBar/index.scss' as *;
+
+page {
+  min-height: 100%;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-family: "Be Vietnam Pro", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-body, "Be Vietnam Pro", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+view,
+text,
+button,
+input,
+textarea {
+  box-sizing: border-box;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+}
+
+button::after {
+  border: 0;
+}
+
+.nut-button.submit-button,
+.nut-button.create-invite__submit,
+.nut-button.create-post__submit,
+.nut-button.report-submit,
+.nut-button.privacy-save,
+.nut-button.invite-detail__primary,
+.nut-button.pet-detail__invite {
+  width: 100%;
+  border: 0;
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+  box-shadow: 0 10px 22px rgba(50, 107, 0, 0.18);
+  box-shadow: var(--shadow-action, 0 10px 22px rgba(50, 107, 0, 0.18));
+  color: #fff;
+  font-weight: 600;
+}
+
+.nut-button.submit-button .nut-button-children,
+.nut-button.create-invite__submit .nut-button-children,
+.nut-button.create-post__submit .nut-button-children,
+.nut-button.report-submit .nut-button-children,
+.nut-button.privacy-save .nut-button-children,
+.nut-button.invite-detail__primary .nut-button-children,
+.nut-button.pet-detail__invite .nut-button-children {
+  color: #fff;
+}
+
+.nut-button.invite-detail__ghost,
+.nut-button.invite-detail__report,
+.nut-button.pet-detail__follow,
+.nut-button.post-detail__ghost {
+  border: 0;
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  font-weight: 600;
+}
+
+.nut-button.post-detail__danger {
+  border: 0;
+  background: rgba(186, 26, 26, 0.1);
+  color: #ba1a1a;
+  color: var(--color-danger, #ba1a1a);
+  font-weight: 600;
+}
+
+.nut-button.post-detail__block {
+  border: 0;
+  background: rgba(186, 26, 26, 0.1);
+  color: #ba1a1a;
+  color: var(--color-danger, #ba1a1a);
+  font-weight: 600;
+}
+
+.nut-button.pet-manage__text-action,
+.nut-button.pet-manage__danger-link {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+.nut-button.pet-manage__text-action {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.nut-button.pet-manage__danger-link {
+  color: #ba1a1a;
+  color: var(--color-danger, #ba1a1a);
+}
+
+.nut-button.nut-button-disabled {
+  box-shadow: none;
+  opacity: 0.58;
+}
+
+.page {
+  min-height: 100vh;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+  padding: 96px 40px 44px;
+}
+
+.page--tab {
+  padding-bottom: 128px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.safe-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}

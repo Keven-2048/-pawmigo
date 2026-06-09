@@ -1,6 +1,11 @@
 node_modules/
 dist/
 .swc/
+**/node_modules/
+**/dist/
+**/.swc/
+**/.test-dist/
+**/project.private.config.json
 .env
 *.log
 .DS_Store

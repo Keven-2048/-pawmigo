@@ -1,0 +1,229 @@
+.privacy-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-top: 96px;
+  padding-bottom: 150px;
+}
+
+.privacy-page__topbar {
+  display: grid;
+  grid-template-columns: 100px 1fr 100px;
+  align-items: center;
+  min-height: 96px;
+}
+
+.privacy-page__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
+
+.privacy-page__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 30px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.privacy-page__spacer {
+  min-width: 1px;
+}
+
+.privacy-safety-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 24px;
+}
+
+.privacy-safety-card__icon {
+  --ui-icon-offset: 21px;
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+  transform-origin: center;
+}
+
+.privacy-safety-card__copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.privacy-safety-card__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.privacy-safety-card__desc {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.privacy-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.privacy-group__title {
+  padding-left: 6px;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.privacy-group__card {
+  overflow: hidden;
+}
+
+.privacy-entry {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 104px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #ecefe2;
+  border-bottom: 1px solid var(--color-surface-muted, #ecefe2);
+}
+
+.privacy-entry:last-child {
+  border-bottom: 0;
+}
+
+.privacy-entry__icon {
+  --ui-icon-offset: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: #f2f5e7;
+  background: var(--color-surface-soft, #f2f5e7);
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+  transform-origin: center;
+}
+
+.privacy-entry--danger .privacy-entry__icon,
+.privacy-entry__icon--danger,
+.privacy-entry--danger .privacy-entry__title {
+  color: #ba1a1a;
+  color: var(--color-danger, #ba1a1a);
+}
+
+.privacy-entry__copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.privacy-entry__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.privacy-entry__desc {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.privacy-entry__arrow {
+  --ui-icon-offset: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  transform: none;
+}
+
+.privacy-entry__switch {
+  flex: 0 0 auto;
+}
+
+.privacy-shield {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 0 6px;
+}
+
+.privacy-shield__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  min-width: 112px;
+  height: 112px;
+  min-height: 112px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, rgba(254, 178, 70, 0.8), rgba(50, 107, 0, 0.18) 58%, rgba(255, 255, 255, 0.5));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
+
+.privacy-shield__copy {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 20px;
+  text-align: center;
+}
+
+.privacy-shield__version {
+  color: #87907f;
+  color: var(--color-text-subtle, #87907f);
+  font-size: 20px;
+  text-align: center;
+}
+
+.privacy-save {
+  position: fixed;
+  right: 40px;
+  bottom: 44px;
+  left: 40px;
+  z-index: 10;
+  height: 88px;
+  border-radius: var(--radius-pill, 999px);
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+  box-shadow: 0 10px 22px rgba(50, 107, 0, 0.18);
+  box-shadow: var(--shadow-action, 0 10px 22px rgba(50, 107, 0, 0.18));
+}
