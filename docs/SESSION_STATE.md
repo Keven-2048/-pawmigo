@@ -14,6 +14,7 @@ The user selected the next phase on 2026-06-10: real API / Go backend integratio
 The approved next-phase direction is documented in `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md`.
 The implementation plan is documented in `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md`.
 Frontend remote adapter and Go Gin P0 in-memory backend skeleton have been implemented on branch `codex/remote-api-go-skeleton`.
+Remote API / Go P0 backend skeleton PR is open: https://github.com/Keven-2048/-pawmigo/pull/2
 Do not jump directly to MySQL, Redis, Docker Compose, admin app, or production WeChat API unless the user explicitly opens that future phase.
 ```
 
@@ -592,15 +593,20 @@ If chat history is unavailable, continue from these files.
 
 No product code is currently in progress after this checkpoint.
 
+PR handoff is complete for the remote API / Go P0 backend skeleton phase:
+
+- Branch: `codex/remote-api-go-skeleton`
+- PR: https://github.com/Keven-2048/-pawmigo/pull/2
+- Base: `plan1-foundation-auth`
+
 ## Next Recommended Step
 
-Prepare the remote API / Go P0 backend skeleton phase for PR handoff:
+Review and merge the remote API / Go P0 backend skeleton PR, or explicitly choose the next development phase:
 
-1. Commit the current backend/docs changes on `codex/remote-api-go-skeleton`.
-2. Push the branch and open a PR for the remote API preparation phase.
-3. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
-4. Next development phase should be chosen explicitly by the user before starting MySQL/Redis persistence, Docker Compose, production WeChat login, upload/COS, admin app, message center, chat, or follow/friend work.
-5. If a defect appears before PR merge, fix only the remote adapter or Go in-memory P0 backend surface and add/adjust regression coverage.
+1. If PR feedback appears, fix only the remote adapter or Go in-memory P0 backend surface and add/adjust regression coverage.
+2. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
+3. Next development phase should be chosen explicitly by the user before starting MySQL/Redis persistence, Docker Compose, production WeChat login, upload/COS, admin app, message center, chat, or follow/friend work.
+4. Do not merge PR #2 locally or remotely unless the user explicitly asks for merge/integration.
 
 ## Known Constraints
 
