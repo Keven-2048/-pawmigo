@@ -80,29 +80,19 @@ test('pages and stores depend on service layer instead of mock internals', () =>
   )
 })
 
-test('all exported service methods enforce current-phase mock-only API mode', () => {
+test('service layer switches between mock and remote adapters only at the service boundary', () => {
   const srcRoot = resolve(__dirname, '../../src')
   const source = readFileSync(join(srcRoot, 'services/index.ts'), 'utf8')
-  assert.match(source, /function useMock[\s\S]*ensureMockMode\(\)/)
-  const serviceNames = [
-    'authService',
-    'userService',
-    'petService',
-    'locationService',
-    'nearbyService',
-    'inviteService',
-    'postService',
-    'reportService',
-    'blockService'
-  ]
-  const offenders = serviceNames.filter((serviceName) => {
-    const block = source.match(new RegExp(`export const ${serviceName} = \\{([\\s\\S]*?)\\n\\}`))?.[1] || ''
-    const mockCalls = block.match(/mockApi\./g) || []
-    const unguardedBlock = stripUseMockCalls(block)
-    return mockCalls.length === 0 || unguardedBlock.includes('mockApi.')
-  })
+  const mockAdapter = readFileSync(join(srcRoot, 'services/mock/index.ts'), 'utf8')
+  const remoteAdapter = readFileSync(join(srcRoot, 'services/remote/index.ts'), 'utf8')
 
-  assert.deepEqual(offenders, [])
+  assert.match(source, /createServicesForMode/)
+  assert.match(source, /mode === 'mock'[\s\S]*createMockServices\(\)/)
+  assert.match(source, /mode === 'remote'[\s\S]*createRemoteServices\(createRemoteClient\(baseUrl\)\)/)
+  assert.match(source, /Unsupported TARO_APP_API_MODE/)
+  assert.equal(stripUseMockCalls(source).includes('mockApi.'), false)
+  assert.match(mockAdapter, /mockApi\./)
+  assert.match(remoteAdapter, /\/api\/v1|\/auth\/wechat-login|\/nearby\/pets/)
 })
 
 test('protected pages install the shared auth guard', () => {

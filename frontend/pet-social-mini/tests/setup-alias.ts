@@ -19,6 +19,16 @@ if (!globalWithAlias[aliasFlag]) {
   const compiledSrcRoot = resolve(__dirname, '../src')
 
   moduleWithResolver._resolveFilename = function resolveAlias(request, parent, isMain, options) {
+    if (request === '@tarojs/taro') {
+      return originalResolveFilename.call(
+        this,
+        resolve(__dirname, 'fakes/taro'),
+        parent,
+        isMain,
+        options
+      )
+    }
+
     if (request.startsWith('@/')) {
       return originalResolveFilename.call(
         this,
