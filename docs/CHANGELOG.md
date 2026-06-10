@@ -17,6 +17,7 @@
 - Verified remote mini-program compilation with `TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp`.
 - Updated `docs/SESSION_STATE.md` so future sessions know the next phase is frontend remote adapter plus Go Gin P0 in-memory backend skeleton, not full database/admin/Docker production work.
 - Opened PR #2 for the remote API / Go P0 backend skeleton phase: https://github.com/Keven-2048/-pawmigo/pull/2
+- Merged PR #2 into `plan1-foundation-auth` and re-verified backend tests, mini-program typecheck/build/tests, and remote-mode build.
 
 ## 2026-06-06
 

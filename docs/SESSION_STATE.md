@@ -14,7 +14,7 @@ The user selected the next phase on 2026-06-10: real API / Go backend integratio
 The approved next-phase direction is documented in `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md`.
 The implementation plan is documented in `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md`.
 Frontend remote adapter and Go Gin P0 in-memory backend skeleton have been implemented on branch `codex/remote-api-go-skeleton`.
-Remote API / Go P0 backend skeleton PR is open: https://github.com/Keven-2048/-pawmigo/pull/2
+Remote API / Go P0 backend skeleton PR #2 has been merged into `plan1-foundation-auth`: https://github.com/Keven-2048/-pawmigo/pull/2
 Do not jump directly to MySQL, Redis, Docker Compose, admin app, or production WeChat API unless the user explicitly opens that future phase.
 ```
 
@@ -593,20 +593,19 @@ If chat history is unavailable, continue from these files.
 
 No product code is currently in progress after this checkpoint.
 
-PR handoff is complete for the remote API / Go P0 backend skeleton phase:
+Remote API / Go P0 backend skeleton integration is complete:
 
-- Branch: `codex/remote-api-go-skeleton`
-- PR: https://github.com/Keven-2048/-pawmigo/pull/2
-- Base: `plan1-foundation-auth`
+- Merged PR: https://github.com/Keven-2048/-pawmigo/pull/2
+- Merge commit: `d3c46f6678c499ce10de4c6ce521260b822b91ed`
+- Current branch: `plan1-foundation-auth`
 
 ## Next Recommended Step
 
-Review and merge the remote API / Go P0 backend skeleton PR, or explicitly choose the next development phase:
+Explicitly choose the next development phase:
 
-1. If PR feedback appears, fix only the remote adapter or Go in-memory P0 backend surface and add/adjust regression coverage.
-2. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
-3. Next development phase should be chosen explicitly by the user before starting MySQL/Redis persistence, Docker Compose, production WeChat login, upload/COS, admin app, message center, chat, or follow/friend work.
-4. Do not merge PR #2 locally or remotely unless the user explicitly asks for merge/integration.
+1. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
+2. Recommended next technical phase is backend persistence: MySQL/GORM schema, migrations, and replacing the in-memory store behind the same route contract.
+3. Alternative next phases require explicit user selection: production WeChat login, upload/COS, Docker/deployment, admin app, message center, chat, or follow/friend work.
 
 ## Known Constraints
 
@@ -647,6 +646,7 @@ Results:
 - `npm run typecheck` passed.
 - `npm run build:weapp` passed and generated `frontend/pet-social-mini/dist`.
 - Remote-mode `TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp` passed.
+- After PR #2 merge into `plan1-foundation-auth`, `go test ./...`, `npm run typecheck && npm run build:weapp && npm test`, and remote-mode `npm run build:weapp` were re-run and passed.
 - `npm test` passed with 95 Node test cases covering:
   - no Unsplash image-domain dependencies in static source
   - local Mock image assets exist in the compiled WeChat package
