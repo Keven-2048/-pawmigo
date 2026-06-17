@@ -10,3 +10,11 @@ dist/
 *.log
 .DS_Store
 pawmigo-mini/audit/
+
+# Backend local database files
+backend/api/pawmigo.db
+backend/api/*.db
+
+# Local tooling artifacts
+.codegraph/
+.cursor/

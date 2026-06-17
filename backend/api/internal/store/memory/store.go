@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"pawmigo/backend/api/internal/domain"
+	storepkg "pawmigo/backend/api/internal/store"
 )
 
 var (
-	ErrUnauthorized = errors.New("用户未登录")
-	ErrNotFound     = errors.New("资源不存在")
+	ErrUnauthorized = storepkg.ErrUnauthorized
+	ErrNotFound     = storepkg.ErrNotFound
 )
 
 type Store struct {
@@ -125,27 +126,16 @@ func (s *Store) MyPets(userID int64) []domain.Pet {
 	return result
 }
 
-type PetPayload struct {
-	Name            string   `json:"name"`
-	AvatarURL       string   `json:"avatarUrl"`
-	Type            string   `json:"type"`
-	Breed           string   `json:"breed"`
-	Gender          string   `json:"gender"`
-	Birthday        string   `json:"birthday"`
-	Weight          float64  `json:"weight"`
-	Sterilized      bool     `json:"sterilized"`
-	VaccineStatus   string   `json:"vaccineStatus"`
-	PersonalityTags []string `json:"personalityTags"`
-	InterestTags    []string `json:"interestTags"`
-	Description     string   `json:"description"`
-	Visible         *bool    `json:"visible"`
-}
+type PetPayload = storepkg.PetPayload
 
 func (s *Store) CreatePet(userID int64, payload PetPayload) (domain.Pet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if strings.TrimSpace(payload.Name) == "" {
 		return domain.Pet{}, errors.New("请填写宠物昵称")
+	}
+	if err := validatePetPayload(payload); err != nil {
+		return domain.Pet{}, err
 	}
 	visible := true
 	if payload.Visible != nil {
@@ -189,6 +179,9 @@ func (s *Store) UpdatePet(userID int64, id int64, payload PetPayload) (domain.Pe
 	defer s.mu.Unlock()
 	if strings.TrimSpace(payload.Name) == "" {
 		return domain.Pet{}, errors.New("请填写宠物昵称")
+	}
+	if err := validatePetPayload(payload); err != nil {
+		return domain.Pet{}, err
 	}
 	for index := range s.pets {
 		if int64(s.pets[index].ID) == id && s.pets[index].Status == "normal" {
@@ -320,15 +313,7 @@ func (s *Store) NearbyPets(userID int64, filter map[string]string, page int, pag
 	return pageResult(list, page, pageSize)
 }
 
-type InvitePayload struct {
-	FromPetID    int64  `json:"fromPetId"`
-	ToPetID      int64  `json:"toPetId"`
-	Type         string `json:"type"`
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	LocationName string `json:"locationName"`
-	MeetTime     string `json:"meetTime"`
-}
+type InvitePayload = storepkg.InvitePayload
 
 func (s *Store) CreateInvite(userID int64, payload InvitePayload) (domain.Invite, error) {
 	s.mu.Lock()
@@ -358,6 +343,9 @@ func (s *Store) CreateInvite(userID int64, payload InvitePayload) (domain.Invite
 		if int64(invite.FromUserID) == userID && int64(invite.ToPetID) == payload.ToPetID && invite.Status == "pending" && within24Hours(invite.CreatedAt) {
 			return domain.Invite{}, errors.New("24 小时内已经向这只宠物发过邀请")
 		}
+	}
+	if s.dailyInviteCount(userID) >= 10 {
+		return domain.Invite{}, errors.New("今天的邀请次数已用完")
 	}
 	now := nowISO()
 	invite := domain.Invite{
@@ -457,14 +445,7 @@ func (s *Store) UpdateInvite(userID int64, id int64, action string) (domain.Invi
 	return domain.Invite{}, ErrNotFound
 }
 
-type PostPayload struct {
-	PetID        int64    `json:"petId"`
-	Content      string   `json:"content"`
-	Images       []string `json:"images"`
-	LocationName string   `json:"locationName"`
-	TopicTags    []string `json:"topicTags"`
-	Visibility   string   `json:"visibility"`
-}
+type PostPayload = storepkg.PostPayload
 
 func (s *Store) Posts(userID int64, feed string, page int, pageSize int) domain.PageResult[domain.Post] {
 	s.mu.Lock()
@@ -510,6 +491,9 @@ func (s *Store) CreatePost(userID int64, payload PostPayload) (domain.Post, erro
 	}
 	if len(payload.Images) > 9 {
 		return domain.Post{}, errors.New("图片最多 9 张")
+	}
+	if len([]rune(strings.TrimSpace(payload.Content))) > 1000 {
+		return domain.Post{}, errors.New("动态内容最多 1000 字")
 	}
 	now := nowISO()
 	post := domain.Post{
@@ -644,19 +628,16 @@ func (s *Store) DeleteComment(userID int64, id int64) error {
 	return ErrNotFound
 }
 
-type ReportPayload struct {
-	TargetType  string   `json:"targetType"`
-	TargetID    int64    `json:"targetId"`
-	Reason      string   `json:"reason"`
-	Description string   `json:"description"`
-	Images      []string `json:"images"`
-}
+type ReportPayload = storepkg.ReportPayload
 
 func (s *Store) CreateReport(userID int64, payload ReportPayload) (domain.Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if payload.Reason == "" {
 		return domain.Report{}, errors.New("请选择举报原因")
+	}
+	if !s.canReportTarget(userID, payload.TargetType, payload.TargetID) {
+		return domain.Report{}, errors.New("举报目标不存在")
 	}
 	report := domain.Report{
 		ID:             domain.ID(s.next()),
@@ -673,10 +654,7 @@ func (s *Store) CreateReport(userID int64, payload ReportPayload) (domain.Report
 	return report, nil
 }
 
-type BlockPayload struct {
-	BlockedUserID int64  `json:"blockedUserId"`
-	Reason        string `json:"reason"`
-}
+type BlockPayload = storepkg.BlockPayload
 
 func (s *Store) CreateBlock(userID int64, payload BlockPayload) (domain.Block, error) {
 	s.mu.Lock()
@@ -818,6 +796,55 @@ func (s *Store) canInvitePet(userID int64, pet domain.Pet) bool {
 	return ok && int64(pet.UserID) != userID && owner.Privacy.AllowStrangerInvite && !s.isBlockedBetween(userID, int64(pet.UserID))
 }
 
+func (s *Store) canReportTarget(userID int64, targetType string, targetID int64) bool {
+	switch targetType {
+	case "user":
+		user, ok := s.user(targetID)
+		return ok && user.Status == "normal" && !s.isBlockedBetween(userID, targetID)
+	case "pet":
+		pet, ok := s.pet(targetID)
+		return ok && s.canSeePet(userID, pet)
+	case "post":
+		post, ok := s.post(targetID)
+		return ok && s.canSeePost(userID, post)
+	case "comment":
+		for _, comment := range s.comments {
+			if int64(comment.ID) == targetID && comment.Status == "normal" {
+				post, ok := s.post(int64(comment.PostID))
+				return ok && s.canSeePost(userID, post)
+			}
+		}
+		return false
+	case "invite":
+		for _, invite := range s.invites {
+			if int64(invite.ID) == targetID {
+				return s.canSeeInvite(userID, invite)
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func (s *Store) canSeePost(userID int64, post domain.Post) bool {
+	if post.Status != "normal" || s.isBlockedBetween(userID, int64(post.UserID)) {
+		return false
+	}
+	return post.Visibility != "private" || int64(post.UserID) == userID
+}
+
+func (s *Store) canSeeInvite(userID int64, invite domain.Invite) bool {
+	if int64(invite.FromUserID) != userID && int64(invite.ToUserID) != userID {
+		return false
+	}
+	peer := int64(invite.FromUserID)
+	if peer == userID {
+		peer = int64(invite.ToUserID)
+	}
+	return !s.isBlockedBetween(userID, peer)
+}
+
 func (s *Store) isBlockedBetween(a int64, b int64) bool {
 	for _, block := range s.blocks {
 		if (int64(block.UserID) == a && int64(block.BlockedUserID) == b) || (int64(block.UserID) == b && int64(block.BlockedUserID) == a) {
@@ -825,6 +852,29 @@ func (s *Store) isBlockedBetween(a int64, b int64) bool {
 		}
 	}
 	return false
+}
+
+func (s *Store) dailyInviteCount(userID int64) int {
+	count := 0
+	for _, invite := range s.invites {
+		if int64(invite.FromUserID) == userID && isToday(invite.CreatedAt) {
+			count++
+		}
+	}
+	return count
+}
+
+func validatePetPayload(payload PetPayload) error {
+	if len(payload.PersonalityTags) > 10 {
+		return errors.New("性格标签最多 10 个")
+	}
+	if len(payload.InterestTags) > 10 {
+		return errors.New("兴趣标签最多 10 个")
+	}
+	if len([]rune(payload.Description)) > 500 {
+		return errors.New("简介最多 500 字")
+	}
+	return nil
 }
 
 func pageResult[T any](list []T, page int, pageSize int) domain.PageResult[T] {
@@ -857,6 +907,16 @@ func isPast(value string) bool {
 func within24Hours(value string) bool {
 	parsed, err := time.Parse(time.RFC3339, value)
 	return err == nil && time.Since(parsed) < 24*time.Hour
+}
+
+func isToday(value string) bool {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return false
+	}
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	return !parsed.Before(start)
 }
 
 func distanceText(value int) string {

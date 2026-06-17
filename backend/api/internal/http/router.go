@@ -7,12 +7,12 @@ import (
 	"pawmigo/backend/api/internal/domain"
 	"pawmigo/backend/api/internal/http/middleware"
 	"pawmigo/backend/api/internal/http/response"
-	"pawmigo/backend/api/internal/store/memory"
+	storepkg "pawmigo/backend/api/internal/store"
 
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(store *memory.Store) *gin.Engine {
+func NewRouter(store storepkg.Store) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -46,7 +46,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 		response.OK(c, store.Blocks(currentUserID(c)))
 	})
 	auth.POST("/blocks", func(c *gin.Context) {
-		var payload memory.BlockPayload
+		var payload storepkg.BlockPayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -58,7 +58,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 		response.OK(c, store.MyPets(currentUserID(c)))
 	})
 	auth.POST("/pets", func(c *gin.Context) {
-		var payload memory.PetPayload
+		var payload storepkg.PetPayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -70,7 +70,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 		writeResult(c, pet, err)
 	})
 	auth.PUT("/pets/:id", func(c *gin.Context) {
-		var payload memory.PetPayload
+		var payload storepkg.PetPayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -103,7 +103,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 	})
 
 	auth.POST("/invites", func(c *gin.Context) {
-		var payload memory.InvitePayload
+		var payload storepkg.InvitePayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -134,7 +134,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 		response.OK(c, store.Posts(currentUserID(c), c.DefaultQuery("feed", "recommend"), queryInt(c, "page", 1), queryInt(c, "page_size", 20)))
 	})
 	auth.POST("/posts", func(c *gin.Context) {
-		var payload memory.PostPayload
+		var payload storepkg.PostPayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -177,7 +177,7 @@ func NewRouter(store *memory.Store) *gin.Engine {
 	})
 
 	auth.POST("/reports", func(c *gin.Context) {
-		var payload memory.ReportPayload
+		var payload storepkg.ReportPayload
 		if !bindJSON(c, &payload) {
 			return
 		}
@@ -203,7 +203,7 @@ func bindJSON(c *gin.Context, target any) bool {
 func writeResult(c *gin.Context, data any, err error) {
 	if err != nil {
 		status := nethttp.StatusBadRequest
-		if err == memory.ErrNotFound {
+		if err == storepkg.ErrNotFound {
 			status = nethttp.StatusNotFound
 		}
 		response.Error(c, status, err.Error())

@@ -19,6 +19,29 @@
 - Opened PR #2 for the remote API / Go P0 backend skeleton phase: https://github.com/Keven-2048/-pawmigo/pull/2
 - Merged PR #2 into `plan1-foundation-auth` and re-verified backend tests, mini-program typecheck/build/tests, and remote-mode build.
 
+## 2026-06-16
+
+- Added `backend/api/internal/store/store.go` as a store-layer abstraction for the Go backend.
+- Mirrored the `memory.Store` public method surface into a `store.Store` interface without changing the existing memory implementation.
+- Duplicated the memory payload structs into the new `store` package so future storage implementations can share the same request shapes.
+- Added shared store-layer errors `ErrUnauthorized` and `ErrNotFound` with the same user-facing messages as the memory store.
+- Verified `cd backend/api && GOCACHE=/private/tmp/go-build-cache go build ./...` succeeds.
+
+## 2026-06-17
+
+- Moved the GORM dependencies (`gorm.io/gorm`, `gorm.io/driver/mysql`, and `github.com/glebarez/sqlite`) into `backend/api/go.mod` / `go.sum`.
+- Added gormstore contract coverage in `backend/api/internal/store/gormstore/store_test.go` and fixed the SQLite duplicate-index issue found by those tests.
+- Normalized backend store interfaces so memory payloads/errors use `store.*` aliases and `middleware.Auth` / `NewRouter` accept `store.Store`.
+- Parameterized internal HTTP tests to run against both memory and gorm-backed stores.
+- Added `cmd/server` store selection via `PAWMIGO_STORE`, keeping memory as the default and enabling seeded gorm persistence when `PAWMIGO_STORE=gorm`.
+- Committed the previously uncommitted `store.Store` contract, gormstore persistence, and `PAWMIGO_STORE` runtime selection as a single backend commit, and checked in `CLAUDE.md` project guidance.
+- Added a black-box `store.Store` contract suite (`internal/store/storetest/contract.go`) run against both the memory and gorm stores, raising memory store direct coverage from 0% to 63.2%.
+- Enforced four P0 store rules previously only present in the frontend Mock, in both memory and gorm: pet tag count (<=10) / description length (<=500) limits, a per-user daily invite cap (<10/local day, independent of the 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation.
+- Un-skipped the four pending-contract cases so the shared suite asserts the new rules across both stores; coverage now memory 67.9%, gorm 71.7%, http 74.1%.
+- Verified `go build ./...`, `go vet ./...`, and `go test -cover ./...` pass after each change with isolated `GOCACHE`.
+- Added unit tests for the previously untested `internal/http/response` and `internal/http/middleware` packages, taking both from 0% to 100% statement coverage; `cmd/server` main wiring is intentionally left uncovered rather than refactored just to test it.
+- Added HTTP-level integration tests asserting the four new P0 validation rules surface as HTTP 400 with the correct Chinese message through the real API endpoints (pet profile limits, daily invite cap, post content length, report target visibility), run against both memory and gorm backends; `internal/http` coverage 74.1% -> 77.0%.
+
 ## 2026-06-06
 
 - Added persistent handoff guardrails for future sessions.
