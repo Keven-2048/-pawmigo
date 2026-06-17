@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"strings"
 
+	jwtauth "pawmigo/backend/api/internal/auth"
 	"pawmigo/backend/api/internal/http/response"
-	storepkg "pawmigo/backend/api/internal/store"
 
 	"github.com/gin-gonic/gin"
 )
 
 const CurrentUserKey = "currentUserId"
 
-func Auth(store storepkg.Store) gin.HandlerFunc {
+func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -21,8 +21,8 @@ func Auth(store storepkg.Store) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := store.UserIDForToken(strings.TrimPrefix(header, "Bearer "))
-		if !ok {
+		userID, err := jwtauth.Parse(strings.TrimPrefix(header, "Bearer "))
+		if err != nil {
 			response.Error(c, http.StatusUnauthorized, "用户未登录")
 			c.Abort()
 			return

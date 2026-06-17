@@ -4,6 +4,7 @@ import (
 	nethttp "net/http"
 	"strconv"
 
+	jwtauth "pawmigo/backend/api/internal/auth"
 	"pawmigo/backend/api/internal/domain"
 	"pawmigo/backend/api/internal/http/middleware"
 	"pawmigo/backend/api/internal/http/response"
@@ -31,11 +32,28 @@ func NewRouter(store storepkg.Store) *gin.Engine {
 
 	api := router.Group("/api/v1")
 	api.POST("/auth/wechat-login", func(c *gin.Context) {
-		response.OK(c, store.Login())
+		loginResult := store.Login()
+		devToken, ok := loginResult["token"].(string)
+		if !ok {
+			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+			return
+		}
+		userID, ok := store.UserIDForToken(devToken)
+		if !ok {
+			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+			return
+		}
+		token, err := jwtauth.Issue(userID)
+		if err != nil {
+			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+			return
+		}
+		loginResult["token"] = token
+		response.OK(c, loginResult)
 	})
 
 	auth := api.Group("")
-	auth.Use(middleware.Auth(store))
+	auth.Use(middleware.Auth())
 
 	auth.GET("/user/me", func(c *gin.Context) {
 		user, err := store.Me(currentUserID(c))
