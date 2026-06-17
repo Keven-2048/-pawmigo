@@ -89,6 +89,7 @@ Runtime environment variables:
 - `MYSQL_DSN`: when set, the gorm store uses MySQL with this DSN.
 - `PAWMIGO_DB_PATH`: sqlite file path for the gorm store when `MYSQL_DSN` is not set; defaults to `pawmigo.db`.
 - `PAWMIGO_SEED`: set to `1` or `true` to seed an empty gorm database explicitly. Sqlite gorm mode seeds by default for local development; MySQL gorm mode does not seed unless this is set.
+- `PAWMIGO_JWT_SECRET`: HS256 JWT signing secret. If unset, the backend uses the development default `pawmigo-development-jwt-secret`; production must set a strong private value before accepting real users.
 
 Sqlite persistence example:
 
