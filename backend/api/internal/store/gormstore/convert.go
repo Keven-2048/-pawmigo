@@ -25,6 +25,16 @@ func within24Hours(value string) bool {
 	return err == nil && time.Since(parsed) < 24*time.Hour
 }
 
+func isToday(value string) bool {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return false
+	}
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	return !parsed.Before(start)
+}
+
 func distanceText(value int) string {
 	if value < 1000 {
 		return "1km 内"

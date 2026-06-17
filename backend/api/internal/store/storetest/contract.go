@@ -54,8 +54,40 @@ func RunContract(t *testing.T, newStore func(t *testing.T) store.Store) {
 		}
 	})
 
-	t.Run("documents pending pet payload size validation contract", func(t *testing.T) {
-		t.Skip("pending contract: both current store implementations accept oversized tag and description payloads; do not change behavior in this test-only task")
+	t.Run("rejects oversized pet tags and descriptions", func(t *testing.T) {
+		s := newStore(t)
+
+		tooManyPersonalityTags := petPayload("标签太多")
+		tooManyPersonalityTags.PersonalityTags = repeatedStrings("亲人", 11)
+		if _, err := s.CreatePet(1, tooManyPersonalityTags); err == nil {
+			t.Fatal("expected CreatePet with too many personality tags to be rejected")
+		}
+
+		tooManyInterestTags := petPayload("兴趣太多")
+		tooManyInterestTags.InterestTags = repeatedStrings("遛弯", 11)
+		if _, err := s.CreatePet(1, tooManyInterestTags); err == nil {
+			t.Fatal("expected CreatePet with too many interest tags to be rejected")
+		}
+
+		tooLongDescription := petPayload("简介太长")
+		tooLongDescription.Description = strings.Repeat("长", 501)
+		if _, err := s.CreatePet(1, tooLongDescription); err == nil {
+			t.Fatal("expected CreatePet with too long description to be rejected")
+		}
+
+		created, err := s.CreatePet(1, petPayload("栗子"))
+		if err != nil {
+			t.Fatalf("CreatePet error: %v", err)
+		}
+		if _, err := s.UpdatePet(1, int64(created.ID), tooManyPersonalityTags); err == nil {
+			t.Fatal("expected UpdatePet with too many personality tags to be rejected")
+		}
+		if _, err := s.UpdatePet(1, int64(created.ID), tooManyInterestTags); err == nil {
+			t.Fatal("expected UpdatePet with too many interest tags to be rejected")
+		}
+		if _, err := s.UpdatePet(1, int64(created.ID), tooLongDescription); err == nil {
+			t.Fatal("expected UpdatePet with too long description to be rejected")
+		}
 	})
 
 	t.Run("reassigns the default pet after deleting the current default", func(t *testing.T) {
@@ -99,8 +131,29 @@ func RunContract(t *testing.T, newStore func(t *testing.T) store.Store) {
 		}
 	})
 
-	t.Run("documents pending daily invite limit contract", func(t *testing.T) {
-		t.Skip("pending contract: current store implementations enforce duplicate pending invites but not a cross-pet daily invite limit")
+	t.Run("rejects the eleventh daily invite across different target pets", func(t *testing.T) {
+		s := newStore(t)
+
+		targetPetIDs := []int64{102}
+		for i := 0; i < 10; i++ {
+			pet, err := s.CreatePet(2, petPayload("邀约对象"))
+			if err != nil {
+				t.Fatalf("CreatePet target %d error: %v", i, err)
+			}
+			targetPetIDs = append(targetPetIDs, int64(pet.ID))
+		}
+		for i := 0; i < 10; i++ {
+			payload := futureInvitePayload()
+			payload.ToPetID = targetPetIDs[i]
+			if _, err := s.CreateInvite(1, payload); err != nil {
+				t.Fatalf("CreateInvite daily count %d error: %v", i+1, err)
+			}
+		}
+		eleventh := futureInvitePayload()
+		eleventh.ToPetID = targetPetIDs[10]
+		if _, err := s.CreateInvite(1, eleventh); err == nil {
+			t.Fatal("expected eleventh same-day invite to be rejected")
+		}
 	})
 
 	t.Run("rejects invite actions from non owners", func(t *testing.T) {
@@ -165,8 +218,12 @@ func RunContract(t *testing.T, newStore func(t *testing.T) store.Store) {
 		}
 	})
 
-	t.Run("documents pending daily post limit contract", func(t *testing.T) {
-		t.Skip("pending contract: current store implementations validate empty content and image count, but do not enforce a daily post limit")
+	t.Run("rejects oversized post content", func(t *testing.T) {
+		s := newStore(t)
+
+		if _, err := s.CreatePost(1, postPayload(strings.Repeat("长", 1001))); err == nil {
+			t.Fatal("expected oversized post content to be rejected")
+		}
 	})
 
 	t.Run("hides deleted post comments and resets the public comment count", func(t *testing.T) {
@@ -259,8 +316,34 @@ func RunContract(t *testing.T, newStore func(t *testing.T) store.Store) {
 		}
 	})
 
-	t.Run("documents pending report target validation contract", func(t *testing.T) {
-		t.Skip("pending contract: current store implementations persist reports without checking target existence or block visibility")
+	t.Run("rejects missing and invisible report targets", func(t *testing.T) {
+		s := newStore(t)
+
+		for _, targetType := range []string{"user", "pet", "post", "comment", "invite"} {
+			if _, err := s.CreateReport(1, store.ReportPayload{TargetType: targetType, TargetID: 99999, Reason: "spam"}); err == nil {
+				t.Fatalf("expected missing %s report target to be rejected", targetType)
+			}
+		}
+
+		comment, err := s.CreateComment(1, 801, "先留个评论")
+		if err != nil {
+			t.Fatalf("CreateComment for report target error: %v", err)
+		}
+		if _, err := s.CreateBlock(1, store.BlockPayload{BlockedUserID: 2, Reason: "不想互动"}); err != nil {
+			t.Fatalf("CreateBlock error: %v", err)
+		}
+		invisibleTargets := []store.ReportPayload{
+			{TargetType: "user", TargetID: 2, Reason: "spam"},
+			{TargetType: "pet", TargetID: 102, Reason: "spam"},
+			{TargetType: "post", TargetID: 801, Reason: "spam"},
+			{TargetType: "comment", TargetID: int64(comment.ID), Reason: "spam"},
+			{TargetType: "invite", TargetID: 501, Reason: "spam"},
+		}
+		for _, payload := range invisibleTargets {
+			if _, err := s.CreateReport(1, payload); err == nil {
+				t.Fatalf("expected invisible %s report target to be rejected", payload.TargetType)
+			}
+		}
 	})
 }
 
@@ -304,6 +387,14 @@ func postPayload(content string) store.PostPayload {
 		TopicTags:    []string{"遛弯"},
 		Visibility:   "public",
 	}
+}
+
+func repeatedStrings(value string, count int) []string {
+	result := make([]string, count)
+	for i := range result {
+		result[i] = value
+	}
+	return result
 }
 
 func hasInvite(invites []domain.Invite, id int64) bool {

@@ -74,6 +74,9 @@ func (s *Store) CreatePet(userID int64, payload storepkg.PetPayload) (domain.Pet
 	if strings.TrimSpace(payload.Name) == "" {
 		return domain.Pet{}, errors.New("请填写宠物昵称")
 	}
+	if err := validatePetPayload(payload); err != nil {
+		return domain.Pet{}, err
+	}
 	visible := true
 	if payload.Visible != nil {
 		visible = *payload.Visible
@@ -114,6 +117,9 @@ func (s *Store) CreatePet(userID int64, payload storepkg.PetPayload) (domain.Pet
 func (s *Store) UpdatePet(userID int64, id int64, payload storepkg.PetPayload) (domain.Pet, error) {
 	if strings.TrimSpace(payload.Name) == "" {
 		return domain.Pet{}, errors.New("请填写宠物昵称")
+	}
+	if err := validatePetPayload(payload); err != nil {
+		return domain.Pet{}, err
 	}
 	pet, ok := getPet(s.db, id)
 	if !ok {
@@ -292,6 +298,9 @@ func (s *Store) CreateInvite(userID int64, payload storepkg.InvitePayload) (doma
 			return domain.Invite{}, errors.New("24 小时内已经向这只宠物发过邀请")
 		}
 	}
+	if dailyInviteCount(s.db, userID) >= 10 {
+		return domain.Invite{}, errors.New("今天的邀请次数已用完")
+	}
 	now := nowISO()
 	invite := Invite{
 		FromUserID:   userID,
@@ -432,6 +441,9 @@ func (s *Store) CreatePost(userID int64, payload storepkg.PostPayload) (domain.P
 	}
 	if len(payload.Images) > 9 {
 		return domain.Post{}, errors.New("图片最多 9 张")
+	}
+	if len([]rune(strings.TrimSpace(payload.Content))) > 1000 {
+		return domain.Post{}, errors.New("动态内容最多 1000 字")
 	}
 	user, _ := getUser(s.db, userID)
 	now := nowISO()
@@ -592,6 +604,9 @@ func (s *Store) CreateReport(userID int64, payload storepkg.ReportPayload) (doma
 	if payload.Reason == "" {
 		return domain.Report{}, errors.New("请选择举报原因")
 	}
+	if !canReportTarget(s.db, userID, payload.TargetType, payload.TargetID) {
+		return domain.Report{}, errors.New("举报目标不存在")
+	}
 	report := Report{
 		ReporterUserID: userID,
 		TargetType:     payload.TargetType,
@@ -694,10 +709,82 @@ func canInvitePet(db *gorm.DB, userID int64, pet Pet) bool {
 	return ok && pet.UserID != userID && owner.AllowStrangerInvite && !isBlockedBetween(db, userID, pet.UserID)
 }
 
+func canReportTarget(db *gorm.DB, userID int64, targetType string, targetID int64) bool {
+	switch targetType {
+	case "user":
+		user, ok := getUser(db, targetID)
+		return ok && user.Status == "normal" && !isBlockedBetween(db, userID, targetID)
+	case "pet":
+		pet, ok := getPet(db, targetID)
+		return ok && canSeePet(db, userID, pet)
+	case "post":
+		post, ok := getPost(db, targetID)
+		return ok && canSeePost(db, userID, post)
+	case "comment":
+		var comment Comment
+		if err := db.Where("id = ? AND status = ?", targetID, "normal").First(&comment).Error; err != nil {
+			return false
+		}
+		post, ok := getPost(db, comment.PostID)
+		return ok && canSeePost(db, userID, post)
+	case "invite":
+		var invite Invite
+		if err := db.Where("id = ?", targetID).First(&invite).Error; err != nil {
+			return false
+		}
+		return canSeeInvite(db, userID, invite)
+	default:
+		return false
+	}
+}
+
+func canSeePost(db *gorm.DB, userID int64, post Post) bool {
+	if post.Status != "normal" || isBlockedBetween(db, userID, post.UserID) {
+		return false
+	}
+	return post.Visibility != "private" || post.UserID == userID
+}
+
+func canSeeInvite(db *gorm.DB, userID int64, invite Invite) bool {
+	if invite.FromUserID != userID && invite.ToUserID != userID {
+		return false
+	}
+	peer := invite.FromUserID
+	if peer == userID {
+		peer = invite.ToUserID
+	}
+	return !isBlockedBetween(db, userID, peer)
+}
+
 func isBlockedBetween(db *gorm.DB, a int64, b int64) bool {
 	var count int64
 	db.Model(&Block{}).Where("(user_id = ? AND blocked_user_id = ?) OR (user_id = ? AND blocked_user_id = ?)", a, b, b, a).Count(&count)
 	return count > 0
+}
+
+func dailyInviteCount(db *gorm.DB, userID int64) int64 {
+	var invites []Invite
+	db.Where("from_user_id = ?", userID).Find(&invites)
+	var count int64
+	for _, invite := range invites {
+		if isToday(invite.CreatedAt) {
+			count++
+		}
+	}
+	return count
+}
+
+func validatePetPayload(payload storepkg.PetPayload) error {
+	if len(payload.PersonalityTags) > 10 {
+		return errors.New("性格标签最多 10 个")
+	}
+	if len(payload.InterestTags) > 10 {
+		return errors.New("兴趣标签最多 10 个")
+	}
+	if len([]rune(payload.Description)) > 500 {
+		return errors.New("简介最多 500 字")
+	}
+	return nil
 }
 
 func numberValue(value any) (float64, bool) {
