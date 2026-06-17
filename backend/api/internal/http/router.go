@@ -1,11 +1,15 @@
 package http
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	nethttp "net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	jwtauth "pawmigo/backend/api/internal/auth"
+	cospkg "pawmigo/backend/api/internal/cos"
 	"pawmigo/backend/api/internal/domain"
 	"pawmigo/backend/api/internal/http/middleware"
 	"pawmigo/backend/api/internal/http/response"
@@ -20,12 +24,19 @@ type Option func(*routerConfig)
 type routerConfig struct {
 	wechatClient    wechat.Client
 	hasWeChatClient bool
+	cosSigner       *cospkg.Signer
 }
 
 func WithWeChatClient(c wechat.Client) Option {
 	return func(cfg *routerConfig) {
 		cfg.wechatClient = c
 		cfg.hasWeChatClient = c != nil
+	}
+}
+
+func WithCOSSigner(s *cospkg.Signer) Option {
+	return func(cfg *routerConfig) {
+		cfg.cosSigner = s
 	}
 }
 
@@ -38,6 +49,11 @@ func NewRouter(store storepkg.Store, opts ...Option) *gin.Engine {
 		if client, ok := wechat.NewClientFromEnv(); ok {
 			cfg.wechatClient = client
 			cfg.hasWeChatClient = true
+		}
+	}
+	if cfg.cosSigner == nil {
+		if signer, ok := cospkg.NewFromEnv(); ok {
+			cfg.cosSigner = signer
 		}
 	}
 
@@ -119,6 +135,38 @@ func NewRouter(store storepkg.Store, opts ...Option) *gin.Engine {
 		}
 		block, err := store.CreateBlock(currentUserID(c), payload)
 		writeResult(c, block, err)
+	})
+
+	auth.POST("/upload/credential", func(c *gin.Context) {
+		var payload struct {
+			Ext string `json:"ext"`
+		}
+		if err := c.ShouldBindJSON(&payload); err != nil {
+			response.Error(c, nethttp.StatusBadRequest, "请求参数无效")
+			return
+		}
+		ext := strings.ToLower(strings.TrimSpace(payload.Ext))
+		if !isAllowedUploadExt(ext) {
+			response.Error(c, nethttp.StatusBadRequest, "不支持的文件类型")
+			return
+		}
+		if cfg.cosSigner == nil {
+			response.Error(c, nethttp.StatusServiceUnavailable, "上传服务未配置")
+			return
+		}
+
+		objectKey, err := newUploadObjectKey(currentUserID(c), ext)
+		if err != nil {
+			response.Error(c, nethttp.StatusInternalServerError, "上传凭证生成失败")
+			return
+		}
+		uploadURL, fileURL := cfg.cosSigner.PresignPut(objectKey, 15*time.Minute)
+		response.OK(c, gin.H{
+			"uploadUrl": uploadURL,
+			"fileUrl":   fileURL,
+			"objectKey": objectKey,
+			"expiresIn": 900,
+		})
 	})
 
 	auth.GET("/pets/my", func(c *gin.Context) {
@@ -311,4 +359,21 @@ func queryInt(c *gin.Context, name string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func isAllowedUploadExt(ext string) bool {
+	switch ext {
+	case "jpg", "jpeg", "png", "webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func newUploadObjectKey(userID int64, ext string) (string, error) {
+	random := make([]byte, 4)
+	if _, err := rand.Read(random); err != nil {
+		return "", err
+	}
+	return "uploads/" + strconv.FormatInt(userID, 10) + "/" + strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + hex.EncodeToString(random) + "." + ext, nil
 }

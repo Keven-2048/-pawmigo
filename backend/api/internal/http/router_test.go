@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"pawmigo/backend/api/internal/cos"
 	pawmigohttp "pawmigo/backend/api/internal/http"
 	storepkg "pawmigo/backend/api/internal/store"
 	"pawmigo/backend/api/internal/store/gormstore"
@@ -54,6 +55,10 @@ func (s stubWeChatClient) Code2Session(ctx context.Context, code string) (wechat
 func TestMain(m *testing.M) {
 	_ = os.Unsetenv("WECHAT_APP_ID")
 	_ = os.Unsetenv("WECHAT_APP_SECRET")
+	_ = os.Unsetenv("COS_SECRET_ID")
+	_ = os.Unsetenv("COS_SECRET_KEY")
+	_ = os.Unsetenv("COS_BUCKET")
+	_ = os.Unsetenv("COS_REGION")
 	os.Exit(m.Run())
 }
 
@@ -250,6 +255,101 @@ func TestLoginFallsBackToDevWhenWeChatUnconfigured(t *testing.T) {
 			t.Fatalf("expected dev fallback user 1, got %+v", user)
 		}
 	})
+}
+
+func TestUploadCredentialReturnsPresignedCOSURL(t *testing.T) {
+	signer := &cos.Signer{
+		SecretID:  "test-secret-id",
+		SecretKey: "test-secret-key",
+		Bucket:    "pawmigo-1303931411",
+		Region:    "ap-chongqing",
+	}
+
+	for _, backend := range testBackends {
+		backend := backend
+		t.Run(backend.name, func(t *testing.T) {
+			router := pawmigohttp.NewRouter(backend.newStore(), pawmigohttp.WithCOSSigner(signer))
+			token := login(t, router)
+
+			status, response := requestJSON(t, router, http.MethodPost, "/api/v1/upload/credential", token, map[string]any{
+				"ext": "jpg",
+			})
+			if status != http.StatusOK {
+				t.Fatalf("upload credential status=%d response=%+v", status, response)
+			}
+			data := decodeData[struct {
+				UploadURL string `json:"uploadUrl"`
+				FileURL   string `json:"fileUrl"`
+				ObjectKey string `json:"objectKey"`
+				ExpiresIn int    `json:"expiresIn"`
+			}](t, response)
+			if data.UploadURL == "" || data.FileURL == "" || data.ObjectKey == "" {
+				t.Fatalf("upload credential returned empty field: %+v", data)
+			}
+			if !strings.HasPrefix(data.ObjectKey, "uploads/1/") || !strings.HasSuffix(data.ObjectKey, ".jpg") {
+				t.Fatalf("unexpected objectKey %q", data.ObjectKey)
+			}
+			if !strings.HasPrefix(data.UploadURL, "https://pawmigo-1303931411.cos.ap-chongqing.myqcloud.com/"+data.ObjectKey+"?") {
+				t.Fatalf("unexpected uploadUrl %q", data.UploadURL)
+			}
+			if data.FileURL != "https://pawmigo-1303931411.cos.ap-chongqing.myqcloud.com/"+data.ObjectKey {
+				t.Fatalf("unexpected fileUrl %q", data.FileURL)
+			}
+			if data.ExpiresIn != 900 {
+				t.Fatalf("expiresIn=%d", data.ExpiresIn)
+			}
+		})
+	}
+}
+
+func TestUploadCredentialRejectsUnsupportedExt(t *testing.T) {
+	router := pawmigohttp.NewRouter(memory.NewStore(), pawmigohttp.WithCOSSigner(&cos.Signer{
+		SecretID:  "test-secret-id",
+		SecretKey: "test-secret-key",
+		Bucket:    "pawmigo-1303931411",
+		Region:    "ap-chongqing",
+	}))
+	token := login(t, router)
+
+	status, response := requestJSON(t, router, http.MethodPost, "/api/v1/upload/credential", token, map[string]any{
+		"ext": "gif",
+	})
+	if status != http.StatusBadRequest || response.Message != "不支持的文件类型" {
+		t.Fatalf("expected unsupported ext 400, got status=%d response=%+v", status, response)
+	}
+}
+
+func TestUploadCredentialReturns503WhenCOSUnconfigured(t *testing.T) {
+	t.Setenv("COS_SECRET_ID", "")
+	t.Setenv("COS_SECRET_KEY", "")
+	t.Setenv("COS_BUCKET", "")
+	t.Setenv("COS_REGION", "")
+
+	router := pawmigohttp.NewRouter(memory.NewStore())
+	token := login(t, router)
+
+	status, response := requestJSON(t, router, http.MethodPost, "/api/v1/upload/credential", token, map[string]any{
+		"ext": "jpg",
+	})
+	if status != http.StatusServiceUnavailable || response.Message != "上传服务未配置" {
+		t.Fatalf("expected unconfigured COS 503, got status=%d response=%+v", status, response)
+	}
+}
+
+func TestUploadCredentialRequiresAuth(t *testing.T) {
+	router := pawmigohttp.NewRouter(memory.NewStore(), pawmigohttp.WithCOSSigner(&cos.Signer{
+		SecretID:  "test-secret-id",
+		SecretKey: "test-secret-key",
+		Bucket:    "pawmigo-1303931411",
+		Region:    "ap-chongqing",
+	}))
+
+	status, response := requestJSON(t, router, http.MethodPost, "/api/v1/upload/credential", "", map[string]any{
+		"ext": "jpg",
+	})
+	if status != http.StatusUnauthorized || response.Message != "用户未登录" {
+		t.Fatalf("expected auth 401, got status=%d response=%+v", status, response)
+	}
 }
 
 func TestReadyzReturns200WhenStoreHealthy(t *testing.T) {

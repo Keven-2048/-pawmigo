@@ -28,7 +28,7 @@ git status --short --branch
 微信小程序 MVP 已完成；当前推进真实 API 联调准备阶段
 ```
 
-已完成的 MVP 仍以 Mock 模式为默认运行方式。当前新增阶段只包含 Taro 远程服务适配器和 Go Gin P0 内存后端骨架。MySQL/Redis、Docker Compose、React 管理后台、生产微信登录、对象存储上传仍属于后续阶段，除非用户明确要求，不要自动扩展到这些内容。
+已完成的 MVP 仍以 Mock 模式为默认运行方式。当前新增阶段包含 Taro 远程服务适配器、Go Gin P0 内存后端骨架，以及图片直传 COS 的后端预签名凭证。MySQL/Redis、Docker Compose、React 管理后台、生产微信登录仍属于后续阶段，除非用户明确要求，不要自动扩展到这些内容。
 
 ## Documentation
 
@@ -91,6 +91,21 @@ Runtime environment variables:
 - `PAWMIGO_SEED`: set to `1` or `true` to seed an empty gorm database explicitly. Sqlite gorm mode seeds by default for local development; MySQL gorm mode does not seed unless this is set.
 - `PAWMIGO_JWT_SECRET`: HS256 JWT signing secret. If unset, the backend uses the development default `pawmigo-development-jwt-secret`; production must set a strong private value before accepting real users.
 - `WECHAT_APP_ID` / `WECHAT_APP_SECRET`: enable real WeChat `code2session` login for `POST /api/v1/auth/wechat-login`. If either value is unset, the backend keeps the local development login fallback.
+- `COS_SECRET_ID` / `COS_SECRET_KEY` / `COS_BUCKET` / `COS_REGION`: enable Tencent COS direct-upload credentials. `COS_BUCKET` should look like `pawmigo-1303931411`, and `COS_REGION` should look like `ap-chongqing`.
+
+Image upload credential flow:
+
+1. Login and send the JWT as `Authorization: Bearer <token>`.
+2. Request a credential:
+
+```sh
+curl -X POST http://localhost:8080/api/v1/upload/credential \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"ext":"jpg"}'
+```
+
+The response contains `uploadUrl`, `fileUrl`, `objectKey`, and `expiresIn` (`900` seconds). The mini program uploads the image bytes to `uploadUrl` with HTTP `PUT`, then stores `fileUrl` in the business payload. Supported extensions are `jpg`, `jpeg`, `png`, and `webp`. When COS variables are not configured, the endpoint returns `503` with `上传服务未配置`.
 
 Sqlite persistence example:
 
