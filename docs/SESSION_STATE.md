@@ -601,6 +601,7 @@ If chat history is unavailable, continue from these files.
 - Added a black-box `store.Store` contract suite under `internal/store/storetest` exercising P0 rules through the interface only, wired from both memory and gorm `contract_test.go`; raised memory store direct coverage from 0% to 63.2%.
 - Found and closed a real parity gap: the Go memory/gorm stores did not enforce four P0 rules the frontend Mock already had. Added to both stores — pet tag count (<=10) and description length (<=500) limits, a per-user daily invite cap (<10/local day, separate from the existing 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation reusing each store's block/visibility rules.
 - Un-skipped the four pending-contract cases; the shared suite now asserts all four rules across both stores. Coverage: memory 67.9%, gorm 71.7%, http 74.1%.
+- Added unit tests for the `internal/http/response` and `internal/http/middleware` packages (envelope helpers and the auth middleware), taking both from 0% to 100% statement coverage. `cmd/server` is left at 0% on purpose since it is only `main()` wiring and would need a refactor to test.
 
 ## In Progress
 

@@ -39,6 +39,7 @@
 - Enforced four P0 store rules previously only present in the frontend Mock, in both memory and gorm: pet tag count (<=10) / description length (<=500) limits, a per-user daily invite cap (<10/local day, independent of the 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation.
 - Un-skipped the four pending-contract cases so the shared suite asserts the new rules across both stores; coverage now memory 67.9%, gorm 71.7%, http 74.1%.
 - Verified `go build ./...`, `go vet ./...`, and `go test -cover ./...` pass after each change with isolated `GOCACHE`.
+- Added unit tests for the previously untested `internal/http/response` and `internal/http/middleware` packages, taking both from 0% to 100% statement coverage; `cmd/server` main wiring is intentionally left uncovered rather than refactored just to test it.
 
 ## 2026-06-06
 
