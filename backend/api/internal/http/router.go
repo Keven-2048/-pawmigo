@@ -3,17 +3,44 @@ package http
 import (
 	nethttp "net/http"
 	"strconv"
+	"strings"
 
 	jwtauth "pawmigo/backend/api/internal/auth"
 	"pawmigo/backend/api/internal/domain"
 	"pawmigo/backend/api/internal/http/middleware"
 	"pawmigo/backend/api/internal/http/response"
 	storepkg "pawmigo/backend/api/internal/store"
+	"pawmigo/backend/api/internal/wechat"
 
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(store storepkg.Store) *gin.Engine {
+type Option func(*routerConfig)
+
+type routerConfig struct {
+	wechatClient    wechat.Client
+	hasWeChatClient bool
+}
+
+func WithWeChatClient(c wechat.Client) Option {
+	return func(cfg *routerConfig) {
+		cfg.wechatClient = c
+		cfg.hasWeChatClient = c != nil
+	}
+}
+
+func NewRouter(store storepkg.Store, opts ...Option) *gin.Engine {
+	cfg := routerConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if !cfg.hasWeChatClient {
+		if client, ok := wechat.NewClientFromEnv(); ok {
+			cfg.wechatClient = client
+			cfg.hasWeChatClient = true
+		}
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -32,24 +59,38 @@ func NewRouter(store storepkg.Store) *gin.Engine {
 
 	api := router.Group("/api/v1")
 	api.POST("/auth/wechat-login", func(c *gin.Context) {
-		loginResult := store.Login()
-		devToken, ok := loginResult["token"].(string)
-		if !ok {
-			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+		var payload struct {
+			Code string `json:"code"`
+		}
+		if err := c.ShouldBindJSON(&payload); err != nil && cfg.hasWeChatClient {
+			response.Error(c, nethttp.StatusBadRequest, "请求参数错误")
 			return
 		}
-		userID, ok := store.UserIDForToken(devToken)
-		if !ok {
-			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+		if cfg.hasWeChatClient {
+			code := strings.TrimSpace(payload.Code)
+			if code == "" {
+				response.Error(c, nethttp.StatusBadRequest, "缺少 code")
+				return
+			}
+			session, err := cfg.wechatClient.Code2Session(c.Request.Context(), code)
+			if err != nil {
+				response.Error(c, nethttp.StatusUnauthorized, "微信登录失败")
+				return
+			}
+			user, hasPet, err := store.EnsureUserByOpenID(session.OpenID)
+			if err != nil {
+				response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+				return
+			}
+			token, err := jwtauth.Issue(int64(user.ID))
+			if err != nil {
+				response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+				return
+			}
+			response.OK(c, gin.H{"token": token, "user": user, "hasPet": hasPet})
 			return
 		}
-		token, err := jwtauth.Issue(userID)
-		if err != nil {
-			response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
-			return
-		}
-		loginResult["token"] = token
-		response.OK(c, loginResult)
+		writeDevLogin(c, store)
 	})
 
 	auth := api.Group("")
@@ -212,6 +253,27 @@ func NewRouter(store storepkg.Store) *gin.Engine {
 	})
 
 	return router
+}
+
+func writeDevLogin(c *gin.Context, store storepkg.Store) {
+	loginResult := store.Login()
+	devToken, ok := loginResult["token"].(string)
+	if !ok {
+		response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+		return
+	}
+	userID, ok := store.UserIDForToken(devToken)
+	if !ok {
+		response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+		return
+	}
+	token, err := jwtauth.Issue(userID)
+	if err != nil {
+		response.Error(c, nethttp.StatusInternalServerError, "登录状态生成失败")
+		return
+	}
+	loginResult["token"] = token
+	response.OK(c, loginResult)
 }
 
 func currentUserID(c *gin.Context) int64 {

@@ -86,14 +86,31 @@ func (s *Store) Login() map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	user := s.mustUser(1)
-	hasPet := false
-	for _, pet := range s.pets {
-		if pet.UserID == 1 && pet.Status == "normal" {
-			hasPet = true
-			break
+	return map[string]any{"token": s.token, "user": user, "hasPet": s.hasNormalPet(1)}
+}
+
+func (s *Store) EnsureUserByOpenID(openid string) (domain.User, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	openid = strings.TrimSpace(openid)
+	if openid == "" {
+		return domain.User{}, false, errors.New("openid 不能为空")
+	}
+	for _, user := range s.users {
+		if user.OpenID == openid && user.Status == "normal" {
+			return user, s.hasNormalPet(int64(user.ID)), nil
 		}
 	}
-	return map[string]any{"token": s.token, "user": user, "hasPet": hasPet}
+	user := domain.User{
+		ID:       domain.ID(s.nextID),
+		OpenID:   openid,
+		Nickname: "宠友",
+		Status:   "normal",
+		Privacy:  defaultPrivacySettings(),
+	}
+	s.nextID++
+	s.users = append(s.users, user)
+	return user, false, nil
 }
 
 func (s *Store) Me(userID int64) (domain.User, error) {
@@ -128,6 +145,26 @@ func (s *Store) MyPets(userID int64) []domain.Pet {
 		}
 	}
 	return result
+}
+
+func defaultPrivacySettings() domain.PrivacySettings {
+	return domain.PrivacySettings{
+		AllowNearbyVisible:  true,
+		AllowStrangerInvite: true,
+		AllowComment:        true,
+		ShowOwnerName:       true,
+		ShowCity:            true,
+		NotificationEnabled: true,
+	}
+}
+
+func (s *Store) hasNormalPet(userID int64) bool {
+	for _, pet := range s.pets {
+		if int64(pet.UserID) == userID && pet.Status == "normal" {
+			return true
+		}
+	}
+	return false
 }
 
 type PetPayload = storepkg.PetPayload

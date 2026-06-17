@@ -42,6 +42,42 @@ func (s *Store) Login() map[string]any {
 	return map[string]any{"token": "dev-token-pawmigo", "user": userToDomain(user), "hasPet": count > 0}
 }
 
+func (s *Store) EnsureUserByOpenID(openid string) (domain.User, bool, error) {
+	openid = strings.TrimSpace(openid)
+	if openid == "" {
+		return domain.User{}, false, errors.New("openid 不能为空")
+	}
+
+	var user User
+	result := s.db.Where("open_id = ? AND status = ?", openid, "normal").Limit(1).Find(&user)
+	if result.Error != nil {
+		return domain.User{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		now := nowISO()
+		user = User{
+			OpenID:              openid,
+			Nickname:            "宠友",
+			Status:              "normal",
+			AllowNearbyVisible:  true,
+			AllowStrangerInvite: true,
+			AllowComment:        true,
+			ShowOwnerName:       true,
+			ShowCity:            true,
+			NotificationEnabled: true,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+		}
+		if err := s.db.Create(&user).Error; err != nil {
+			return domain.User{}, false, err
+		}
+	}
+
+	var count int64
+	s.db.Model(&Pet{}).Where("user_id = ? AND status = ?", user.ID, "normal").Count(&count)
+	return userToDomain(user), count > 0, nil
+}
+
 func (s *Store) Me(userID int64) (domain.User, error) {
 	user, ok := getUser(s.db, userID)
 	if !ok {
