@@ -15,6 +15,7 @@ type Store interface {
 	Ping() error
 	UserIDForToken(token string) (int64, bool)
 	Login() map[string]any
+	EnsureUserByOpenID(openid string) (domain.User, bool, error)
 	Me(userID int64) (domain.User, error)
 	UpdatePrivacy(userID int64, payload domain.PrivacySettings) (domain.User, error)
 	MyPets(userID int64) []domain.Pet

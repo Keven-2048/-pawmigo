@@ -35,6 +35,32 @@ func RunContract(t *testing.T, newStore func(t *testing.T) store.Store) {
 		}
 	})
 
+	t.Run("ensures users by openid", func(t *testing.T) {
+		s := newStore(t)
+
+		existing, hasPet, err := s.EnsureUserByOpenID("dev-openid-current")
+		if err != nil {
+			t.Fatalf("EnsureUserByOpenID existing error: %v", err)
+		}
+		if existing.ID != 1 || existing.OpenID != "dev-openid-current" || !hasPet {
+			t.Fatalf("unexpected existing user=%+v hasPet=%v", existing, hasPet)
+		}
+
+		created, hasPet, err := s.EnsureUserByOpenID("openid-new-contract")
+		if err != nil {
+			t.Fatalf("EnsureUserByOpenID new error: %v", err)
+		}
+		if created.ID == 0 || created.ID == existing.ID || created.OpenID != "openid-new-contract" || created.Status != "normal" || hasPet {
+			t.Fatalf("unexpected created user=%+v hasPet=%v", created, hasPet)
+		}
+		if !created.Privacy.AllowNearbyVisible || !created.Privacy.AllowStrangerInvite || !created.Privacy.AllowComment || !created.Privacy.ShowOwnerName || !created.Privacy.ShowCity || !created.Privacy.NotificationEnabled {
+			t.Fatalf("created user has non-default privacy: %+v", created.Privacy)
+		}
+		if _, _, err := s.EnsureUserByOpenID("  "); err == nil {
+			t.Fatal("expected empty openid to be rejected")
+		}
+	})
+
 	t.Run("creates pets and validates required names", func(t *testing.T) {
 		s := newStore(t)
 

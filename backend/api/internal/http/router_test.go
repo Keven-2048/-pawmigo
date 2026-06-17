@@ -2,10 +2,12 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +17,7 @@ import (
 	storepkg "pawmigo/backend/api/internal/store"
 	"pawmigo/backend/api/internal/store/gormstore"
 	"pawmigo/backend/api/internal/store/memory"
+	"pawmigo/backend/api/internal/wechat"
 )
 
 type apiResponse struct {
@@ -34,6 +37,24 @@ type unreadyStore struct {
 
 func (unreadyStore) Ping() error {
 	return errors.New("db down")
+}
+
+type stubWeChatClient struct {
+	result wechat.Code2SessionResult
+	err    error
+}
+
+func (s stubWeChatClient) Code2Session(ctx context.Context, code string) (wechat.Code2SessionResult, error) {
+	if s.err != nil {
+		return wechat.Code2SessionResult{}, s.err
+	}
+	return s.result, nil
+}
+
+func TestMain(m *testing.M) {
+	_ = os.Unsetenv("WECHAT_APP_ID")
+	_ = os.Unsetenv("WECHAT_APP_SECRET")
+	os.Exit(m.Run())
 }
 
 var testBackends = []testBackend{
@@ -148,6 +169,85 @@ func TestHealthAndAuth(t *testing.T) {
 		}](t, response)
 		if user.ID != 1 || user.Nickname == "" {
 			t.Fatalf("unexpected user %+v", user)
+		}
+	})
+}
+
+func TestWeChatLoginUsesInjectedClient(t *testing.T) {
+	for _, backend := range testBackends {
+		backend := backend
+		t.Run(backend.name, func(t *testing.T) {
+			store := backend.newStore()
+			router := pawmigohttp.NewRouter(store, pawmigohttp.WithWeChatClient(stubWeChatClient{
+				result: wechat.Code2SessionResult{OpenID: "openid-router-new-" + backend.name},
+			}))
+
+			status, response := requestJSON(t, router, http.MethodPost, "/api/v1/auth/wechat-login", "", map[string]any{"code": "x"})
+			if status != http.StatusOK {
+				t.Fatalf("wechat login status=%d response=%+v", status, response)
+			}
+			data := decodeData[struct {
+				Token  string `json:"token"`
+				HasPet bool   `json:"hasPet"`
+				User   struct {
+					ID     int    `json:"id"`
+					OpenID string `json:"openid"`
+				} `json:"user"`
+			}](t, response)
+			wantOpenID := "openid-router-new-" + backend.name
+			if data.Token == "" || data.User.OpenID != wantOpenID || data.HasPet {
+				t.Fatalf("unexpected wechat login data %+v", data)
+			}
+
+			status, response = requestJSON(t, router, http.MethodGet, "/api/v1/user/me", data.Token, nil)
+			if status != http.StatusOK {
+				t.Fatalf("me after wechat login status=%d response=%+v", status, response)
+			}
+			me := decodeData[struct {
+				ID     int    `json:"id"`
+				OpenID string `json:"openid"`
+			}](t, response)
+			if me.ID != data.User.ID || me.OpenID != wantOpenID {
+				t.Fatalf("unexpected authenticated user %+v, want ID=%d %s", me, data.User.ID, wantOpenID)
+			}
+		})
+	}
+}
+
+func TestWeChatLoginRejectsMissingCode(t *testing.T) {
+	router := pawmigohttp.NewRouter(memory.NewStore(), pawmigohttp.WithWeChatClient(stubWeChatClient{
+		result: wechat.Code2SessionResult{OpenID: "openid-router-new"},
+	}))
+
+	status, response := requestJSON(t, router, http.MethodPost, "/api/v1/auth/wechat-login", "", map[string]any{})
+	if status != http.StatusBadRequest || response.Message != "缺少 code" {
+		t.Fatalf("expected missing code 400, got status=%d response=%+v", status, response)
+	}
+}
+
+func TestWeChatLoginRejectsStubError(t *testing.T) {
+	router := pawmigohttp.NewRouter(memory.NewStore(), pawmigohttp.WithWeChatClient(stubWeChatClient{
+		err: errors.New("invalid code"),
+	}))
+
+	status, response := requestJSON(t, router, http.MethodPost, "/api/v1/auth/wechat-login", "", map[string]any{"code": "bad"})
+	if status != http.StatusUnauthorized || response.Message != "微信登录失败" {
+		t.Fatalf("expected stub error 401, got status=%d response=%+v", status, response)
+	}
+}
+
+func TestLoginFallsBackToDevWhenWeChatUnconfigured(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		token := login(t, router)
+		status, response := requestJSON(t, router, http.MethodGet, "/api/v1/user/me", token, nil)
+		if status != http.StatusOK {
+			t.Fatalf("dev fallback me status=%d response=%+v", status, response)
+		}
+		user := decodeData[struct {
+			ID int `json:"id"`
+		}](t, response)
+		if user.ID != 1 {
+			t.Fatalf("expected dev fallback user 1, got %+v", user)
 		}
 	})
 }
