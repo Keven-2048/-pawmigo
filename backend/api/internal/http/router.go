@@ -21,6 +21,14 @@ func NewRouter(store storepkg.Store) *gin.Engine {
 		response.OK(c, gin.H{"status": "ok"})
 	})
 
+	router.GET("/readyz", func(c *gin.Context) {
+		if err := store.Ping(); err != nil {
+			response.Error(c, nethttp.StatusServiceUnavailable, "数据库不可用")
+			return
+		}
+		response.OK(c, gin.H{"status": "ready"})
+	})
+
 	api := router.Group("/api/v1")
 	api.POST("/auth/wechat-login", func(c *gin.Context) {
 		response.OK(c, store.Login())

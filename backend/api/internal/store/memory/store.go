@@ -71,6 +71,10 @@ func NewStore() *Store {
 	}
 }
 
+func (s *Store) Ping() error {
+	return nil
+}
+
 func (s *Store) UserIDForToken(token string) (int64, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

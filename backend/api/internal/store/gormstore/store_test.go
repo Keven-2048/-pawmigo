@@ -77,6 +77,20 @@ func requireErrorMessage(t *testing.T, err error, message string) {
 	}
 }
 
+func TestPingReturnsErrorWhenDatabaseClosed(t *testing.T) {
+	s, db := newSeededStore(t)
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB error: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	if err := s.Ping(); err == nil {
+		t.Fatal("expected Ping to fail after database close")
+	}
+}
+
 func TestAuthAndMe(t *testing.T) {
 	t.Run("token lookup and current user", func(t *testing.T) {
 		s, _ := newSeededStore(t)

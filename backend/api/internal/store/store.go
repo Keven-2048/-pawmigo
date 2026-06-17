@@ -12,6 +12,7 @@ var (
 )
 
 type Store interface {
+	Ping() error
 	UserIDForToken(token string) (int64, bool)
 	Login() map[string]any
 	Me(userID int64) (domain.User, error)
