@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"pawmigo/backend/api/internal/domain"
+	storepkg "pawmigo/backend/api/internal/store"
 )
 
 var (
-	ErrUnauthorized = errors.New("用户未登录")
-	ErrNotFound     = errors.New("资源不存在")
+	ErrUnauthorized = storepkg.ErrUnauthorized
+	ErrNotFound     = storepkg.ErrNotFound
 )
 
 type Store struct {
@@ -125,21 +126,7 @@ func (s *Store) MyPets(userID int64) []domain.Pet {
 	return result
 }
 
-type PetPayload struct {
-	Name            string   `json:"name"`
-	AvatarURL       string   `json:"avatarUrl"`
-	Type            string   `json:"type"`
-	Breed           string   `json:"breed"`
-	Gender          string   `json:"gender"`
-	Birthday        string   `json:"birthday"`
-	Weight          float64  `json:"weight"`
-	Sterilized      bool     `json:"sterilized"`
-	VaccineStatus   string   `json:"vaccineStatus"`
-	PersonalityTags []string `json:"personalityTags"`
-	InterestTags    []string `json:"interestTags"`
-	Description     string   `json:"description"`
-	Visible         *bool    `json:"visible"`
-}
+type PetPayload = storepkg.PetPayload
 
 func (s *Store) CreatePet(userID int64, payload PetPayload) (domain.Pet, error) {
 	s.mu.Lock()
@@ -320,15 +307,7 @@ func (s *Store) NearbyPets(userID int64, filter map[string]string, page int, pag
 	return pageResult(list, page, pageSize)
 }
 
-type InvitePayload struct {
-	FromPetID    int64  `json:"fromPetId"`
-	ToPetID      int64  `json:"toPetId"`
-	Type         string `json:"type"`
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	LocationName string `json:"locationName"`
-	MeetTime     string `json:"meetTime"`
-}
+type InvitePayload = storepkg.InvitePayload
 
 func (s *Store) CreateInvite(userID int64, payload InvitePayload) (domain.Invite, error) {
 	s.mu.Lock()
@@ -457,14 +436,7 @@ func (s *Store) UpdateInvite(userID int64, id int64, action string) (domain.Invi
 	return domain.Invite{}, ErrNotFound
 }
 
-type PostPayload struct {
-	PetID        int64    `json:"petId"`
-	Content      string   `json:"content"`
-	Images       []string `json:"images"`
-	LocationName string   `json:"locationName"`
-	TopicTags    []string `json:"topicTags"`
-	Visibility   string   `json:"visibility"`
-}
+type PostPayload = storepkg.PostPayload
 
 func (s *Store) Posts(userID int64, feed string, page int, pageSize int) domain.PageResult[domain.Post] {
 	s.mu.Lock()
@@ -644,13 +616,7 @@ func (s *Store) DeleteComment(userID int64, id int64) error {
 	return ErrNotFound
 }
 
-type ReportPayload struct {
-	TargetType  string   `json:"targetType"`
-	TargetID    int64    `json:"targetId"`
-	Reason      string   `json:"reason"`
-	Description string   `json:"description"`
-	Images      []string `json:"images"`
-}
+type ReportPayload = storepkg.ReportPayload
 
 func (s *Store) CreateReport(userID int64, payload ReportPayload) (domain.Report, error) {
 	s.mu.Lock()
@@ -673,10 +639,7 @@ func (s *Store) CreateReport(userID int64, payload ReportPayload) (domain.Report
 	return report, nil
 }
 
-type BlockPayload struct {
-	BlockedUserID int64  `json:"blockedUserId"`
-	Reason        string `json:"reason"`
-}
+type BlockPayload = storepkg.BlockPayload
 
 func (s *Store) CreateBlock(userID int64, payload BlockPayload) (domain.Block, error) {
 	s.mu.Lock()

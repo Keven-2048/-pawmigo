@@ -1,6 +1,6 @@
 # Session State
 
-Last updated: 2026-06-10
+Last updated: 2026-06-17
 
 ## Current Phase
 
@@ -41,6 +41,15 @@ Read these before implementing product code:
 If chat history is unavailable, continue from these files.
 
 ## Completed
+
+- Added `backend/api/internal/store/store.go` with the `store.Store` interface, mirrored payload structs, and shared store-layer errors for the in-memory backend abstraction phase.
+- Verified `cd backend/api && GOCACHE=/private/tmp/go-build-cache go build ./...` succeeds.
+- Moved GORM dependencies into `backend/api/go.mod` / `go.sum`.
+- Added gormstore contract tests and fixed the SQLite duplicate-index issue.
+- Normalized memory payload/error aliases to `store.*`.
+- Updated `middleware.Auth` and `NewRouter` to depend on `store.Store`.
+- Parameterized backend HTTP tests across memory and gorm-backed stores.
+- Added `cmd/server` runtime store selection with `PAWMIGO_STORE`, defaulting to memory and enabling seeded gorm persistence when set to `gorm`.
 
 - Implemented frontend remote API mode:
   - split services into contracts, mock adapter, remote client, and remote adapter
@@ -601,11 +610,9 @@ Remote API / Go P0 backend skeleton integration is complete:
 
 ## Next Recommended Step
 
-Explicitly choose the next development phase:
+Next backend step, only with explicit user approval: run a real MySQL DSN integration pass and plan production persistence migration/deployment around the existing `store.Store` contract.
 
-1. Keep default mini-program runtime in Mock mode unless remote mode is explicitly selected with env vars.
-2. Recommended next technical phase is backend persistence: MySQL/GORM schema, migrations, and replacing the in-memory store behind the same route contract.
-3. Alternative next phases require explicit user selection: production WeChat login, upload/COS, Docker/deployment, admin app, message center, chat, or follow/friend work.
+Keep default local server behavior on memory store unless `PAWMIGO_STORE=gorm` is explicitly selected. Alternative next phases still require explicit user selection: production WeChat login, upload/COS, Docker/deployment, admin app, message center, chat, or follow/friend work.
 
 ## Known Constraints
 
@@ -624,7 +631,13 @@ Latest verification run:
 
 ```sh
 cd backend/api
-go test ./...
+GOCACHE=/private/tmp/go-build-cache GOPATH=/private/tmp/go-path GOMODCACHE=/private/tmp/go-mod-cache go build ./...
+GOCACHE=/private/tmp/go-build-cache GOPATH=/private/tmp/go-path GOMODCACHE=/private/tmp/go-mod-cache go vet ./...
+GOCACHE=/private/tmp/go-build-cache GOPATH=/private/tmp/go-path GOMODCACHE=/private/tmp/go-mod-cache go test -count=1 ./...
+GOCACHE=/private/tmp/go-build-cache GOPATH=/private/tmp/go-path GOMODCACHE=/private/tmp/go-mod-cache go run ./cmd/server
+curl -fsS http://localhost:8080/healthz
+PAWMIGO_STORE=gorm PAWMIGO_DB_PATH=/tmp/pawmigo_t4.db GOCACHE=/private/tmp/go-build-cache GOPATH=/private/tmp/go-path GOMODCACHE=/private/tmp/go-mod-cache go run ./cmd/server
+curl -fsS http://localhost:8080/healthz
 
 cd frontend/pet-social-mini
 npm run typecheck && npm run build:weapp && npm test
@@ -640,6 +653,10 @@ curl -fsS -X POST http://localhost:8080/api/v1/auth/wechat-login -H 'Content-Typ
 
 Results:
 
+- `go build ./...`, `go vet ./...`, and `go test -count=1 ./...` passed for `backend/api` with isolated Go caches.
+- Default `go run ./cmd/server` returned `{"code":0,"message":"ok","data":{"status":"ok"}}` from `/healthz` and logged `store mode: memory`.
+- `PAWMIGO_STORE=gorm PAWMIGO_DB_PATH=/tmp/pawmigo_t4.db go run ./cmd/server` returned the same `/healthz` response and logged `store mode: gorm`.
+- `/tmp/pawmigo_t4.db` was removed after the gorm smoke test.
 - `go test ./...` passed for `backend/api`.
 - Local backend build/start smoke passed; `/healthz` and `/api/v1/auth/wechat-login` returned standard `{ code: 0, message: "ok" }` responses.
 - Port `8080` was checked after smoke and no listener remained.
@@ -767,6 +784,7 @@ Results:
 - The real-device runtime crash was fixed at the generated-bundle pattern level, and the user manually completed the WeChat Developer Tools P0 walkthrough on 2026-06-10 without reporting a new blocker in the continuation message.
 - The latest duplicate-navigation, 280px capsule-safe appbar, proportion, icon-centering, Nearby main icons, secondary settings scale, custom settings switches, block-list finished-state rows, pet-management visibility/default row semantics, card metadata icon alignment, post-detail composer, pet-detail layout, invite-detail status scale, and sticky-button fixes are verified in source/build/test outputs and have passed the user's latest manual P0 walkthrough checkpoint.
 - Current Mock image assets now use compressed local JPEG pet/owner photography for primary visuals; production should move uploaded pet/post media to the approved upload/COS flow later.
-- `backend/api` is intentionally an in-memory contract-validation backend. Production persistence, real WeChat login, upload/COS, and deployment topology still need explicit future-phase approval.
+- `backend/api` now routes through the `store.Store` contract: router/middleware use the interface, gormstore is implemented and tested, and `cmd/server` can switch to seeded gorm persistence with `PAWMIGO_STORE=gorm`.
+- Production MySQL persistence migration, real WeChat login, upload/COS, and deployment topology still need explicit future-phase approval.
 - Superpowers skills are available as local skill files in this session. There is no separate `Skill` tool exposed, so the skill instructions were read from disk and followed with local shell/edit tooling.
 - CodeGraph MCP is configured in `AGENTS.md`, but this repository currently has no `.codegraph/` index initialized. Use native search/read until the user approves initializing it.

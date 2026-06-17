@@ -19,6 +19,22 @@
 - Opened PR #2 for the remote API / Go P0 backend skeleton phase: https://github.com/Keven-2048/-pawmigo/pull/2
 - Merged PR #2 into `plan1-foundation-auth` and re-verified backend tests, mini-program typecheck/build/tests, and remote-mode build.
 
+## 2026-06-16
+
+- Added `backend/api/internal/store/store.go` as a store-layer abstraction for the Go backend.
+- Mirrored the `memory.Store` public method surface into a `store.Store` interface without changing the existing memory implementation.
+- Duplicated the memory payload structs into the new `store` package so future storage implementations can share the same request shapes.
+- Added shared store-layer errors `ErrUnauthorized` and `ErrNotFound` with the same user-facing messages as the memory store.
+- Verified `cd backend/api && GOCACHE=/private/tmp/go-build-cache go build ./...` succeeds.
+
+## 2026-06-17
+
+- Moved the GORM dependencies (`gorm.io/gorm`, `gorm.io/driver/mysql`, and `github.com/glebarez/sqlite`) into `backend/api/go.mod` / `go.sum`.
+- Added gormstore contract coverage in `backend/api/internal/store/gormstore/store_test.go` and fixed the SQLite duplicate-index issue found by those tests.
+- Normalized backend store interfaces so memory payloads/errors use `store.*` aliases and `middleware.Auth` / `NewRouter` accept `store.Store`.
+- Parameterized internal HTTP tests to run against both memory and gorm-backed stores.
+- Added `cmd/server` store selection via `PAWMIGO_STORE`, keeping memory as the default and enabling seeded gorm persistence when `PAWMIGO_STORE=gorm`.
+
 ## 2026-06-06
 
 - Added persistent handoff guardrails for future sessions.

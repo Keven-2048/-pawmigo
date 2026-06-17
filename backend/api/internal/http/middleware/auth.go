@@ -5,14 +5,14 @@ import (
 	"strings"
 
 	"pawmigo/backend/api/internal/http/response"
-	"pawmigo/backend/api/internal/store/memory"
+	storepkg "pawmigo/backend/api/internal/store"
 
 	"github.com/gin-gonic/gin"
 )
 
 const CurrentUserKey = "currentUserId"
 
-func Auth(store *memory.Store) gin.HandlerFunc {
+func Auth(store storepkg.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
