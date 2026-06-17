@@ -2,25 +2,56 @@ package gormstore
 
 import (
 	"os"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
+const (
+	driverMySQL  = "mysql"
+	driverSQLite = "sqlite"
+
+	defaultSQLitePath = "pawmigo.db"
+
+	// Keep the production pool conservative until traffic patterns are measured.
+	maxOpenConns    = 20
+	maxIdleConns    = 10
+	connMaxLifetime = time.Hour
+)
+
+type dbConfig struct {
+	Driver string
+	DSN    string
+	Path   string
+}
+
+func resolveConfig(getenv func(string) string) dbConfig {
+	if dsn := getenv("MYSQL_DSN"); dsn != "" {
+		return dbConfig{Driver: driverMySQL, DSN: dsn}
+	}
+
+	path := getenv("PAWMIGO_DB_PATH")
+	if path == "" {
+		path = defaultSQLitePath
+	}
+	return dbConfig{Driver: driverSQLite, Path: path}
+}
+
 func Open() (*gorm.DB, error) {
 	var (
 		db  *gorm.DB
 		err error
 	)
-	if dsn := os.Getenv("MYSQL_DSN"); dsn != "" {
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	} else {
-		path := os.Getenv("PAWMIGO_DB_PATH")
-		if path == "" {
-			path = "pawmigo.db"
+	cfg := resolveConfig(os.Getenv)
+	if cfg.Driver == driverMySQL {
+		db, err = gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{})
+		if err == nil {
+			err = configureMySQLConnectionPool(db)
 		}
-		db, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
+	} else {
+		db, err = gorm.Open(sqlite.Open(cfg.Path), &gorm.Config{})
 	}
 	if err != nil {
 		return nil, err
@@ -29,6 +60,17 @@ func Open() (*gorm.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func configureMySQLConnectionPool(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	return nil
 }
 
 func OpenForTest() *gorm.DB {

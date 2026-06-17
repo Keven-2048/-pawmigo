@@ -604,6 +604,8 @@ If chat history is unavailable, continue from these files.
 - Added unit tests for the `internal/http/response` and `internal/http/middleware` packages (envelope helpers and the auth middleware), taking both from 0% to 100% statement coverage. `cmd/server` is left at 0% on purpose since it is only `main()` wiring and would need a refactor to test.
 - Added HTTP-level integration tests (in `internal/http/router_test.go`, run against both memory and gorm) asserting the four new P0 validations surface as HTTP 400 with the correct Chinese message via the real endpoints; confirmed `writeResult` maps these business errors to 400 + passthrough message. `internal/http` coverage 74.1% -> 77.0%.
 - Opened PR #3 (`codex/backend-store-consolidation` -> `plan1-foundation-auth`) bundling the store contract, gorm persistence, P0 parity, and the support-package/HTTP tests: https://github.com/Keven-2048/-pawmigo/pull/3
+- Merged PR #3 into `plan1-foundation-auth` (merge commit on origin) after user authorization.
+- Opened the production-persistence preparation phase (user explicitly authorized new-phase work). Made the gorm store production-configurable without needing a live MySQL: pure `resolveConfig(getenv)` driver/path selection with unit tests, a MySQL connection pool (20/10/1h), `cmd/server` seed gating so MySQL is never auto-seeded (seeds only on sqlite or with `PAWMIGO_SEED`), and README env-var docs. Done on branch `codex/gorm-persistence-config`.
 
 ## In Progress
 
@@ -617,7 +619,7 @@ Remote API / Go P0 backend skeleton integration is complete:
 
 ## Next Recommended Step
 
-Next backend step, only with explicit user approval: run a real MySQL DSN integration pass and plan production persistence migration/deployment around the existing `store.Store` contract.
+The gorm store is now production-configurable (driver/DSN/pool/seed-gating) and verified via sqlite + unit tests. The remaining backend step needs an actual MySQL instance, which was not available in the working environment: point `MYSQL_DSN` at a real MySQL, run a live integration pass against the `store.Store` contract, and plan the production migration/deployment topology. This step is blocked on a reachable MySQL, not on code.
 
 Keep default local server behavior on memory store unless `PAWMIGO_STORE=gorm` is explicitly selected. Alternative next phases still require explicit user selection: production WeChat login, upload/COS, Docker/deployment, admin app, message center, chat, or follow/friend work.
 

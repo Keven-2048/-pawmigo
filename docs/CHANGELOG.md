@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-18
+
+- Merged PR #3 (backend store contract, gorm persistence, P0 parity, support-package and HTTP tests) into `plan1-foundation-auth`.
+- Opened the production-persistence preparation phase. Hardened the gorm store without requiring a live MySQL server to verify:
+  - extracted a pure `resolveConfig(getenv)` that selects mysql (when `MYSQL_DSN` is set) or sqlite (`PAWMIGO_DB_PATH`, default `pawmigo.db`), with unit tests for the three resolution cases.
+  - added a MySQL connection pool (max open 20, max idle 10, conn max lifetime 1h); sqlite path unchanged.
+  - gated dev seeding in `cmd/server` so a real MySQL is never auto-seeded — seeding now happens only on sqlite or when `PAWMIGO_SEED` is set.
+  - documented `PAWMIGO_STORE` / `MYSQL_DSN` / `PAWMIGO_DB_PATH` / `PAWMIGO_SEED` and sqlite vs mysql startup examples in README.
+- gormstore coverage 71.7% -> 72.2%; full backend `go build` / `go vet` / `go test` remain green.
+
 ## 2026-06-10
 
 - Opened the next-phase design direction after the Mock-first mini-program MVP delivery.
