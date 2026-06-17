@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"pawmigo/backend/api/internal/config"
 	pawmigohttp "pawmigo/backend/api/internal/http"
 	storepkg "pawmigo/backend/api/internal/store"
 	"pawmigo/backend/api/internal/store/gormstore"
@@ -12,6 +13,10 @@ import (
 )
 
 func main() {
+	if err := config.LoadDotEnv(".env"); err != nil {
+		log.Printf("warning: could not load .env: %v", err)
+	}
+
 	mode := os.Getenv("PAWMIGO_STORE")
 	if mode != "gorm" {
 		mode = "memory"
