@@ -376,3 +376,172 @@ func TestPostsCommentsReportsAndBlocks(t *testing.T) {
 		}
 	})
 }
+
+func TestPetCreateRejectsOversizedProfileFieldsWith400(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		token := login(t, router)
+
+		tests := []struct {
+			name    string
+			payload map[string]any
+			message string
+		}{
+			{
+				name: "personality tags",
+				payload: petRequestPayload(map[string]any{
+					"personalityTags": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"},
+				}),
+				message: "性格标签最多 10 个",
+			},
+			{
+				name: "interest tags",
+				payload: petRequestPayload(map[string]any{
+					"interestTags": []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"},
+				}),
+				message: "兴趣标签最多 10 个",
+			},
+			{
+				name: "description",
+				payload: petRequestPayload(map[string]any{
+					"description": strings.Repeat("介", 501),
+				}),
+				message: "简介最多 500 字",
+			},
+		}
+
+		for _, tt := range tests {
+			tt := tt
+			t.Run(tt.name, func(t *testing.T) {
+				status, response := requestJSON(t, router, http.MethodPost, "/api/v1/pets", token, tt.payload)
+				assertBadRequestMessage(t, status, response, tt.message)
+			})
+		}
+	})
+}
+
+func TestPetUpdateRejectsOversizedDescriptionWith400(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		token := login(t, router)
+
+		status, response := requestJSON(t, router, http.MethodPut, "/api/v1/pets/101", token, petRequestPayload(map[string]any{
+			"description": strings.Repeat("介", 501),
+		}))
+		assertBadRequestMessage(t, status, response, "简介最多 500 字")
+	})
+}
+
+func TestInviteCreateRejectsDailyLimitWith400(t *testing.T) {
+	for _, backend := range testBackends {
+		backend := backend
+		t.Run(backend.name, func(t *testing.T) {
+			store := backend.newStore()
+			router := newTestServer(store)
+			token := login(t, router)
+
+			targetPetIDs := []int64{102}
+			for len(targetPetIDs) < 11 {
+				pet, err := store.CreatePet(2, storepkg.PetPayload{
+					Name:            "日限目标" + strconv.Itoa(len(targetPetIDs)),
+					AvatarURL:       "/assets/mock/pet-dog-golden.jpg",
+					Type:            "dog",
+					Breed:           "金毛",
+					Gender:          "female",
+					Sterilized:      false,
+					VaccineStatus:   "completed",
+					PersonalityTags: []string{"友好"},
+					InterestTags:    []string{"遛弯"},
+					Description:     "用于邀请日限 HTTP 测试",
+					Visible:         boolPointer(true),
+				})
+				if err != nil {
+					t.Fatalf("seed target pet: %v", err)
+				}
+				targetPetIDs = append(targetPetIDs, int64(pet.ID))
+			}
+
+			for index, targetPetID := range targetPetIDs[:10] {
+				status, response := requestJSON(t, router, http.MethodPost, "/api/v1/invites", token, inviteRequestPayload(targetPetID))
+				if status != http.StatusOK {
+					t.Fatalf("invite %d targetPetID=%d status=%d response=%+v", index+1, targetPetID, status, response)
+				}
+			}
+
+			status, response := requestJSON(t, router, http.MethodPost, "/api/v1/invites", token, inviteRequestPayload(targetPetIDs[10]))
+			assertBadRequestMessage(t, status, response, "今天的邀请次数已用完")
+		})
+	}
+}
+
+func TestPostCreateRejectsOversizedContentWith400(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		token := login(t, router)
+
+		status, response := requestJSON(t, router, http.MethodPost, "/api/v1/posts", token, map[string]any{
+			"petId":        101,
+			"content":      strings.Repeat("动", 1001),
+			"images":       []string{},
+			"locationName": "",
+			"topicTags":    []string{},
+			"visibility":   "public",
+		})
+		assertBadRequestMessage(t, status, response, "动态内容最多 1000 字")
+	})
+}
+
+func TestReportCreateRejectsInvisibleTargetWith400(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		token := login(t, router)
+
+		status, response := requestJSON(t, router, http.MethodPost, "/api/v1/reports", token, map[string]any{
+			"targetType":  "post",
+			"targetId":    999999,
+			"reason":      "广告营销",
+			"description": "",
+			"images":      []string{},
+		})
+		assertBadRequestMessage(t, status, response, "举报目标不存在")
+	})
+}
+
+func assertBadRequestMessage(t *testing.T, status int, response apiResponse, message string) {
+	t.Helper()
+	if status != http.StatusBadRequest || response.Message != message {
+		t.Fatalf("expected 400 %q, got status=%d response=%+v", message, status, response)
+	}
+}
+
+func petRequestPayload(overrides map[string]any) map[string]any {
+	payload := map[string]any{
+		"name":            "栗子",
+		"avatarUrl":       "",
+		"type":            "cat",
+		"breed":           "狸花",
+		"gender":          "female",
+		"sterilized":      true,
+		"vaccineStatus":   "completed",
+		"personalityTags": []string{"安静"},
+		"interestTags":    []string{"拍照"},
+		"description":     "喜欢晒太阳",
+		"visible":         true,
+	}
+	for key, value := range overrides {
+		payload[key] = value
+	}
+	return payload
+}
+
+func inviteRequestPayload(toPetID int64) map[string]any {
+	return map[string]any{
+		"fromPetId":    101,
+		"toPetId":      toPetID,
+		"type":         "walk",
+		"title":        "一起散步",
+		"description":  "",
+		"locationName": "社区花园",
+		"meetTime":     time.Now().Add(2 * time.Hour).Format(time.RFC3339),
+	}
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
