@@ -10,6 +10,7 @@
   - documented `PAWMIGO_STORE` / `MYSQL_DSN` / `PAWMIGO_DB_PATH` / `PAWMIGO_SEED` and sqlite vs mysql startup examples in README.
 - gormstore coverage 71.7% -> 72.2%; full backend `go build` / `go vet` / `go test` remain green.
 - Ran the live MySQL integration pass against a local MySQL 8.4. Added a build-tagged test (`//go:build mysql_integration`) that runs the shared `storetest.RunContract` suite against a real MySQL through the production `Open()` path; all 14 contract cases pass, and AutoMigrate creates the 9 tables (utf8mb4). The test skips unless `PAWMIGO_MYSQL_TEST_DSN` is set, so default `go test ./...` stays DB-free.
+- Added a `/readyz` database readiness probe: `store.Store` gains a `Ping() error` method (memory always healthy; gorm pings the underlying `*sql.DB`), and `GET /readyz` returns 200 `{status: ready}` when reachable or 503 `数据库不可用` when not. `/healthz` stays a static liveness probe. `internal/http` coverage 77.0% -> 77.9%.
 
 ## 2026-06-10
 
