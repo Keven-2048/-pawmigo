@@ -3,6 +3,7 @@ package http_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -25,6 +26,14 @@ type apiResponse struct {
 type testBackend struct {
 	name     string
 	newStore func() storepkg.Store
+}
+
+type unreadyStore struct {
+	storepkg.Store
+}
+
+func (unreadyStore) Ping() error {
+	return errors.New("db down")
 }
 
 var testBackends = []testBackend{
@@ -141,6 +150,30 @@ func TestHealthAndAuth(t *testing.T) {
 			t.Fatalf("unexpected user %+v", user)
 		}
 	})
+}
+
+func TestReadyzReturns200WhenStoreHealthy(t *testing.T) {
+	eachBackend(t, func(t *testing.T, router http.Handler) {
+		status, response := requestJSON(t, router, http.MethodGet, "/readyz", "", nil)
+		if status != http.StatusOK || response.Code != 0 {
+			t.Fatalf("readyz status=%d response=%+v", status, response)
+		}
+		data := decodeData[struct {
+			Status string `json:"status"`
+		}](t, response)
+		if data.Status != "ready" {
+			t.Fatalf("expected ready status, got %+v", data)
+		}
+	})
+}
+
+func TestReadyzReturns503WhenStoreUnavailable(t *testing.T) {
+	router := newTestServer(unreadyStore{Store: memory.NewStore()})
+
+	status, response := requestJSON(t, router, http.MethodGet, "/readyz", "", nil)
+	if status != http.StatusServiceUnavailable || response.Message != "数据库不可用" {
+		t.Fatalf("expected unavailable readyz, got status=%d response=%+v", status, response)
+	}
 }
 
 func TestPetDefaultsAndNearbyPrivacy(t *testing.T) {

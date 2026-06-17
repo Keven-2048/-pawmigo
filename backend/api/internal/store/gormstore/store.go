@@ -20,6 +20,14 @@ func New(db *gorm.DB) storepkg.Store {
 	return &Store{db: db}
 }
 
+func (s *Store) Ping() error {
+	db, err := s.db.DB()
+	if err != nil {
+		return err
+	}
+	return db.Ping()
+}
+
 func (s *Store) UserIDForToken(token string) (int64, bool) {
 	if token == "dev-token-pawmigo" {
 		return 1, true
