@@ -11,6 +11,7 @@
 - gormstore coverage 71.7% -> 72.2%; full backend `go build` / `go vet` / `go test` remain green.
 - Ran the live MySQL integration pass against a local MySQL 8.4. Added a build-tagged test (`//go:build mysql_integration`) that runs the shared `storetest.RunContract` suite against a real MySQL through the production `Open()` path; all 14 contract cases pass, and AutoMigrate creates the 9 tables (utf8mb4). The test skips unless `PAWMIGO_MYSQL_TEST_DSN` is set, so default `go test ./...` stays DB-free.
 - Added a `/readyz` database readiness probe: `store.Store` gains a `Ping() error` method (memory always healthy; gorm pings the underlying `*sql.DB`), and `GET /readyz` returns 200 `{status: ready}` when reachable or 503 `数据库不可用` when not. `/healthz` stays a static liveness probe. `internal/http` coverage 77.0% -> 77.9%.
+- Replaced the static dev bearer token with real JWT authentication, implemented with the standard library only (HS256 via crypto/hmac; no new dependency). New `internal/auth` issues/parses tokens (sub=userID, iat, exp; 7-day TTL) with the secret from `PAWMIGO_JWT_SECRET` (dev default documented as must-override in production). The login endpoint now returns a signed JWT (user id resolved through the existing store seam), and `middleware.Auth()` verifies the JWT and no longer accepts the static dev token. Added auth unit tests (round-trip / tampered / malformed / expired); `internal/auth` 79.6%, middleware 100%.
 
 ## 2026-06-10
 
