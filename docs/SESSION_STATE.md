@@ -606,6 +606,7 @@ If chat history is unavailable, continue from these files.
 - Opened PR #3 (`codex/backend-store-consolidation` -> `plan1-foundation-auth`) bundling the store contract, gorm persistence, P0 parity, and the support-package/HTTP tests: https://github.com/Keven-2048/-pawmigo/pull/3
 - Merged PR #3 into `plan1-foundation-auth` (merge commit on origin) after user authorization.
 - Opened the production-persistence preparation phase (user explicitly authorized new-phase work). Made the gorm store production-configurable without needing a live MySQL: pure `resolveConfig(getenv)` driver/path selection with unit tests, a MySQL connection pool (20/10/1h), `cmd/server` seed gating so MySQL is never auto-seeded (seeds only on sqlite or with `PAWMIGO_SEED`), and README env-var docs. Done on branch `codex/gorm-persistence-config`.
+- Ran the live MySQL integration pass against a local MySQL 8.4 (user confirmed keep AutoMigrate + ISO-string timestamps). Added a build-tagged test (`//go:build mysql_integration`, branch `codex/mysql-integration-test`) running `storetest.RunContract` against real MySQL through the production `Open()` path; all 14 contract cases pass and AutoMigrate creates the 9 tables (utf8mb4). The test skips unless `PAWMIGO_MYSQL_TEST_DSN` is set, keeping default `go test ./...` DB-free. The gorm store is now validated on real MySQL.
 
 ## In Progress
 
@@ -619,7 +620,7 @@ Remote API / Go P0 backend skeleton integration is complete:
 
 ## Next Recommended Step
 
-The gorm store is now production-configurable (driver/DSN/pool/seed-gating) and verified via sqlite + unit tests. The remaining backend step needs an actual MySQL instance, which was not available in the working environment: point `MYSQL_DSN` at a real MySQL, run a live integration pass against the `store.Store` contract, and plan the production migration/deployment topology. This step is blocked on a reachable MySQL, not on code.
+The gorm store is now production-configurable and verified against a real local MySQL 8.4 (build-tagged integration test, all contract cases green, AutoMigrate confirmed). Remaining persistence work, per `docs/superpowers/plans/2026-06-18-mysql-persistence-migration.md`: introduce versioned migrations + a v1 baseline and gate `AutoMigrate` to dev before production, then wire deployment config/secrets. The decision was made to keep AutoMigrate and ISO-string timestamps for now.
 
 Keep default local server behavior on memory store unless `PAWMIGO_STORE=gorm` is explicitly selected. Alternative next phases still require explicit user selection: production WeChat login, upload/COS, Docker/deployment, admin app, message center, chat, or follow/friend work.
 
