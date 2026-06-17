@@ -9,6 +9,7 @@
   - gated dev seeding in `cmd/server` so a real MySQL is never auto-seeded — seeding now happens only on sqlite or when `PAWMIGO_SEED` is set.
   - documented `PAWMIGO_STORE` / `MYSQL_DSN` / `PAWMIGO_DB_PATH` / `PAWMIGO_SEED` and sqlite vs mysql startup examples in README.
 - gormstore coverage 71.7% -> 72.2%; full backend `go build` / `go vet` / `go test` remain green.
+- Ran the live MySQL integration pass against a local MySQL 8.4. Added a build-tagged test (`//go:build mysql_integration`) that runs the shared `storetest.RunContract` suite against a real MySQL through the production `Open()` path; all 14 contract cases pass, and AutoMigrate creates the 9 tables (utf8mb4). The test skips unless `PAWMIGO_MYSQL_TEST_DSN` is set, so default `go test ./...` stays DB-free.
 
 ## 2026-06-10
 
