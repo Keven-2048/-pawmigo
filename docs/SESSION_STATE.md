@@ -602,6 +602,8 @@ If chat history is unavailable, continue from these files.
 - Found and closed a real parity gap: the Go memory/gorm stores did not enforce four P0 rules the frontend Mock already had. Added to both stores — pet tag count (<=10) and description length (<=500) limits, a per-user daily invite cap (<10/local day, separate from the existing 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation reusing each store's block/visibility rules.
 - Un-skipped the four pending-contract cases; the shared suite now asserts all four rules across both stores. Coverage: memory 67.9%, gorm 71.7%, http 74.1%.
 - Added unit tests for the `internal/http/response` and `internal/http/middleware` packages (envelope helpers and the auth middleware), taking both from 0% to 100% statement coverage. `cmd/server` is left at 0% on purpose since it is only `main()` wiring and would need a refactor to test.
+- Added HTTP-level integration tests (in `internal/http/router_test.go`, run against both memory and gorm) asserting the four new P0 validations surface as HTTP 400 with the correct Chinese message via the real endpoints; confirmed `writeResult` maps these business errors to 400 + passthrough message. `internal/http` coverage 74.1% -> 77.0%.
+- Opened PR #3 (`codex/backend-store-consolidation` -> `plan1-foundation-auth`) bundling the store contract, gorm persistence, P0 parity, and the support-package/HTTP tests: https://github.com/Keven-2048/-pawmigo/pull/3
 
 ## In Progress
 

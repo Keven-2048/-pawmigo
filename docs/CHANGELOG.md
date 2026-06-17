@@ -40,6 +40,7 @@
 - Un-skipped the four pending-contract cases so the shared suite asserts the new rules across both stores; coverage now memory 67.9%, gorm 71.7%, http 74.1%.
 - Verified `go build ./...`, `go vet ./...`, and `go test -cover ./...` pass after each change with isolated `GOCACHE`.
 - Added unit tests for the previously untested `internal/http/response` and `internal/http/middleware` packages, taking both from 0% to 100% statement coverage; `cmd/server` main wiring is intentionally left uncovered rather than refactored just to test it.
+- Added HTTP-level integration tests asserting the four new P0 validation rules surface as HTTP 400 with the correct Chinese message through the real API endpoints (pet profile limits, daily invite cap, post content length, report target visibility), run against both memory and gorm backends; `internal/http` coverage 74.1% -> 77.0%.
 
 ## 2026-06-06
 
