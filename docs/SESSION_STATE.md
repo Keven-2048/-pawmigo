@@ -597,6 +597,10 @@ If chat history is unavailable, continue from these files.
   - excluded generated build/test artifacts such as `dist`, `.test-dist`, and `node_modules`.
 - Rebuilt `frontend/pet-social-mini/dist`.
 - Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 89/89.
+- Committed the previously uncommitted backend `store.Store` contract, gormstore persistence, and `PAWMIGO_STORE` runtime selection as one focused commit, and checked in `CLAUDE.md` project guidance.
+- Added a black-box `store.Store` contract suite under `internal/store/storetest` exercising P0 rules through the interface only, wired from both memory and gorm `contract_test.go`; raised memory store direct coverage from 0% to 63.2%.
+- Found and closed a real parity gap: the Go memory/gorm stores did not enforce four P0 rules the frontend Mock already had. Added to both stores — pet tag count (<=10) and description length (<=500) limits, a per-user daily invite cap (<10/local day, separate from the existing 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation reusing each store's block/visibility rules.
+- Un-skipped the four pending-contract cases; the shared suite now asserts all four rules across both stores. Coverage: memory 67.9%, gorm 71.7%, http 74.1%.
 
 ## In Progress
 
