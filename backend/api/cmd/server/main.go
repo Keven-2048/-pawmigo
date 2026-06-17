@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	pawmigohttp "pawmigo/backend/api/internal/http"
 	storepkg "pawmigo/backend/api/internal/store"
@@ -23,7 +24,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		gormstore.SeedIfEmpty(db)
+		if os.Getenv("MYSQL_DSN") == "" || seedEnabled(os.Getenv("PAWMIGO_SEED")) {
+			gormstore.SeedIfEmpty(db)
+		}
 		store = gormstore.New(db)
 	default:
 		store = memory.NewStore()
@@ -35,4 +38,8 @@ func main() {
 	if err := router.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func seedEnabled(value string) bool {
+	return value == "1" || strings.EqualFold(value, "true")
 }

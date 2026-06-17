@@ -83,10 +83,31 @@ go test ./...
 go run ./cmd/server
 ```
 
+Runtime environment variables:
+
+- `PAWMIGO_STORE`: `memory` or `gorm`; defaults to `memory`.
+- `MYSQL_DSN`: when set, the gorm store uses MySQL with this DSN.
+- `PAWMIGO_DB_PATH`: sqlite file path for the gorm store when `MYSQL_DSN` is not set; defaults to `pawmigo.db`.
+- `PAWMIGO_SEED`: set to `1` or `true` to seed an empty gorm database explicitly. Sqlite gorm mode seeds by default for local development; MySQL gorm mode does not seed unless this is set.
+
+Sqlite persistence example:
+
+```sh
+cd backend/api
+PAWMIGO_STORE=gorm PAWMIGO_DB_PATH=/tmp/pawmigo.db go run ./cmd/server
+```
+
+MySQL persistence example:
+
+```sh
+cd backend/api
+PAWMIGO_STORE=gorm MYSQL_DSN='user:pass@tcp(127.0.0.1:3306)/pawmigo?charset=utf8mb4&parseTime=True&loc=Local' go run ./cmd/server
+```
+
 The server listens on `http://localhost:8080` and exposes:
 
 - `GET /healthz`
 - P0 API routes under `/api/v1`
 - development login through `POST /api/v1/auth/wechat-login`
 
-This backend is intentionally in-memory for the current phase. It is for frontend/backend contract validation, not production persistence.
+The backend defaults to in-memory state for contract validation. Set `PAWMIGO_STORE=gorm` to use sqlite by default, or MySQL when `MYSQL_DSN` is provided.
