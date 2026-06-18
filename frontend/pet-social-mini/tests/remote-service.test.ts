@@ -148,6 +148,80 @@ test('remote auth login rejects when WeChat login returns no code', async () => 
   assert.deepEqual(getRequestCalls(), [])
 })
 
+test('remote upload service requests credential and uploads raw bytes with presigned PUT', async () => {
+  const uploadUrl = 'https://cos.example.com/obj?sign=x'
+  const fileUrl = 'https://cos.example.com/obj'
+  setRequestHandler((options) => {
+    if (options.url.includes('/upload/credential')) {
+      return {
+        statusCode: 200,
+        data: {
+          code: 0,
+          message: 'ok',
+          data: {
+            uploadUrl,
+            fileUrl,
+            objectKey: 'k',
+            expiresIn: 900
+          }
+        }
+      }
+    }
+
+    if (options.url === uploadUrl && options.method === 'PUT') {
+      return {
+        statusCode: 200,
+        data: {}
+      }
+    }
+
+    throw new Error(`Unexpected request: ${options.method} ${options.url}`)
+  })
+
+  const services = createRemoteServices(createRemoteClient('http://api.test'))
+  const result = await services.uploadService.uploadImage('wxfile://tmp_a.png')
+
+  assert.equal(result, fileUrl)
+  const calls = getRequestCalls()
+  assert.equal(calls.length, 2)
+  assert.equal(calls[0].url, 'http://api.test/api/v1/upload/credential')
+  assert.equal(calls[0].method, 'POST')
+  assert.deepEqual(calls[0].data, { ext: 'png' })
+  assert.equal(calls[1].url, uploadUrl)
+  assert.equal(calls[1].method, 'PUT')
+  assert.equal(calls[1].header.Authorization, undefined)
+})
+
+test('remote upload service rejects when presigned PUT fails', async () => {
+  const uploadUrl = 'https://cos.example.com/obj?sign=x'
+  setRequestHandler((options) => {
+    if (options.url.includes('/upload/credential')) {
+      return {
+        statusCode: 200,
+        data: {
+          code: 0,
+          message: 'ok',
+          data: {
+            uploadUrl,
+            fileUrl: 'https://cos.example.com/obj',
+            objectKey: 'k',
+            expiresIn: 900
+          }
+        }
+      }
+    }
+
+    return {
+      statusCode: 403,
+      data: {}
+    }
+  })
+
+  const services = createRemoteServices(createRemoteClient('http://api.test'))
+
+  await assert.rejects(() => services.uploadService.uploadImage('wxfile://tmp_a.png'), /图片上传失败/)
+})
+
 test('remote service maps P0 methods to backend routes', async () => {
   const seen: Array<{ method?: string; url: string; data?: unknown }> = []
   setRequestHandler((options) => {

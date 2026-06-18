@@ -26,5 +26,6 @@ export const {
   inviteService,
   postService,
   reportService,
+  uploadService,
   blockService
 } = services

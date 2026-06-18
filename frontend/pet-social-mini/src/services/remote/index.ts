@@ -13,7 +13,30 @@ import type {
 } from '@/types/domain'
 import type { AppServices } from '@/services/contracts'
 import type { RemoteClient } from './client'
-import { login as wxLogin } from '@tarojs/taro'
+import { getFileSystemManager, login as wxLogin, request } from '@tarojs/taro'
+
+type UploadCredential = {
+  uploadUrl: string
+  fileUrl: string
+  objectKey: string
+  expiresIn: number
+}
+
+function inferImageExt(tempFilePath: string) {
+  const ext = tempFilePath.split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+}
+
+function readFileAsArrayBuffer(filePath: string): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const fs = getFileSystemManager()
+    fs.readFile({
+      filePath,
+      success: (res) => resolve(res.data as ArrayBuffer),
+      fail: reject
+    })
+  })
+}
 
 export function createRemoteServices(client: RemoteClient): AppServices {
   return {
@@ -75,6 +98,24 @@ export function createRemoteServices(client: RemoteClient): AppServices {
     },
     reportService: {
       create: (payload) => client.post<Report>('/reports', payload)
+    },
+    uploadService: {
+      uploadImage: async (tempFilePath) => {
+        const ext = inferImageExt(tempFilePath)
+        const cred = await client.post<UploadCredential>('/upload/credential', { ext })
+        const data = await readFileAsArrayBuffer(tempFilePath)
+        const putRes = await request({
+          url: cred.uploadUrl,
+          method: 'PUT',
+          data
+        }) as { statusCode: number }
+
+        if (putRes.statusCode < 200 || putRes.statusCode >= 300) {
+          throw new Error('图片上传失败')
+        }
+
+        return cred.fileUrl
+      }
     },
     blockService: {
       create: (blockedUserId, reason) => client.post<Block>('/blocks', { blockedUserId, reason }),

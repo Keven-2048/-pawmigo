@@ -75,6 +75,10 @@ export interface ReportService {
   create: (payload: CreateReportPayload) => Promise<Report>
 }
 
+export interface UploadService {
+  uploadImage: (tempFilePath: string) => Promise<string>
+}
+
 export interface BlockService {
   create: (blockedUserId: ID, reason?: string) => Promise<Block>
   list: () => Promise<Block[]>
@@ -89,5 +93,6 @@ export interface AppServices {
   inviteService: InviteService
   postService: PostService
   reportService: ReportService
+  uploadService: UploadService
   blockService: BlockService
 }

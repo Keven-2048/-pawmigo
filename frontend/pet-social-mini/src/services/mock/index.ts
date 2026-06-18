@@ -47,6 +47,9 @@ export function createMockServices(): AppServices {
     reportService: {
       create: (payload) => mockApi.createReport(payload)
     },
+    uploadService: {
+      uploadImage: async (tempFilePath) => tempFilePath
+    },
     blockService: {
       create: (blockedUserId, reason) => mockApi.createBlock(blockedUserId, reason),
       list: () => mockApi.blocks()
