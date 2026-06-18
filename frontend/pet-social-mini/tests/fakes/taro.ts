@@ -11,9 +11,14 @@ type RequestResponse = {
 }
 
 type RequestHandler = (options: RequestOptions) => Promise<RequestResponse> | RequestResponse
+type LoginResult = {
+  code: string
+  errMsg: string
+}
 
 const storage = new Map<string, unknown>()
 const calls: RequestOptions[] = []
+const loginCalls: Array<Record<string, never>> = []
 
 let handler: RequestHandler = () => ({
   statusCode: 200,
@@ -23,10 +28,15 @@ let handler: RequestHandler = () => ({
     data: {}
   }
 })
+let loginResult: LoginResult = {
+  code: 'test-code',
+  errMsg: 'login:ok'
+}
 
 export function resetTaroFake() {
   storage.clear()
   calls.splice(0, calls.length)
+  loginCalls.splice(0, loginCalls.length)
   handler = () => ({
     statusCode: 200,
     data: {
@@ -35,6 +45,10 @@ export function resetTaroFake() {
       data: {}
     }
   })
+  loginResult = {
+    code: 'test-code',
+    errMsg: 'login:ok'
+  }
 }
 
 export function setRequestHandler(nextHandler: RequestHandler) {
@@ -43,6 +57,19 @@ export function setRequestHandler(nextHandler: RequestHandler) {
 
 export function getRequestCalls() {
   return calls.map((call) => ({ ...call, header: { ...call.header } }))
+}
+
+export function setLoginResult(nextResult: LoginResult) {
+  loginResult = nextResult
+}
+
+export function getLoginCalls() {
+  return [...loginCalls]
+}
+
+export async function login() {
+  loginCalls.push({})
+  return loginResult
 }
 
 export async function request(options: RequestOptions) {
