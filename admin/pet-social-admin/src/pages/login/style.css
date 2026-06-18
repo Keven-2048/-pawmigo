@@ -1,0 +1,28 @@
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 15% 18%, rgba(93, 178, 141, 0.22), transparent 28%),
+    radial-gradient(circle at 82% 12%, rgba(243, 156, 92, 0.2), transparent 24%),
+    linear-gradient(135deg, #f7fbf5 0%, #fff8ee 100%);
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(68, 94, 80, 0.16);
+}
+
+.login-title.ant-typography {
+  margin: 0;
+  color: #243a31;
+  text-align: center;
+}
+
+.login-subtitle.ant-typography {
+  margin: 8px 0 28px;
+  color: #75847a;
+  text-align: center;
+}
