@@ -13,11 +13,19 @@ import type {
 } from '@/types/domain'
 import type { AppServices } from '@/services/contracts'
 import type { RemoteClient } from './client'
+import { login as wxLogin } from '@tarojs/taro'
 
 export function createRemoteServices(client: RemoteClient): AppServices {
   return {
     authService: {
-      login: () => client.post<LoginResult>('/auth/wechat-login', { code: 'dev-login-code' }),
+      login: async () => {
+        const { code } = await wxLogin()
+        if (!code) {
+          throw new Error('微信登录失败：未获取到 code')
+        }
+
+        return client.post<LoginResult>('/auth/wechat-login', { code })
+      },
       me: () => client.get<User>('/user/me')
     },
     userService: {

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import './setup-alias'
 import {
+  getLoginCalls,
   getRequestCalls,
   getStorageSync,
   resetTaroFake,
+  setLoginResult,
   setRequestHandler,
   setStorageSync
 } from './fakes/taro'
@@ -85,6 +87,65 @@ test('remote client removes token on 401 responses', async () => {
 
   await assert.rejects(() => client.get('/user/me'), /登录已过期/)
   assert.equal(getStorageSync('token'), '')
+})
+
+test('remote auth login sends the WeChat login code to backend', async () => {
+  setLoginResult({
+    code: 'wx-code-from-taro',
+    errMsg: 'login:ok'
+  })
+  setRequestHandler(() => ({
+    statusCode: 200,
+    data: {
+      code: 0,
+      message: 'ok',
+      data: {
+        token: 'remote-token',
+        user: {
+          id: 1,
+          nickname: '小松',
+          avatarUrl: '',
+          privacy: {
+            allowNearbyVisible: true,
+            allowStrangerInvite: true,
+            allowComment: true,
+            showOwnerName: true,
+            showCity: true,
+            notificationEnabled: true
+          }
+        }
+      }
+    }
+  }))
+
+  const services = createRemoteServices(createRemoteClient('http://api.test'))
+  const result = await services.authService.login()
+
+  assert.deepEqual(getLoginCalls(), [{}])
+  assert.equal(result.token, 'remote-token')
+  assert.deepEqual(getRequestCalls(), [
+    {
+      url: 'http://api.test/api/v1/auth/wechat-login',
+      method: 'POST',
+      data: {
+        code: 'wx-code-from-taro'
+      },
+      header: {}
+    }
+  ])
+})
+
+test('remote auth login rejects when WeChat login returns no code', async () => {
+  setLoginResult({
+    code: '',
+    errMsg: 'login:ok'
+  })
+
+  const services = createRemoteServices(createRemoteClient('http://api.test'))
+
+  await assert.rejects(() => services.authService.login(), /微信登录失败：未获取到 code/)
+  assert.deepEqual(getLoginCalls(), [{}])
+  assert.deepEqual(getRequestCalls(), [])
 })
 
 test('remote service maps P0 methods to backend routes', async () => {
