@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { navigateBack, useRouter } from '@tarojs/taro'
+import { chooseImage, navigateBack, useRouter } from '@tarojs/taro'
 import { Image, Text, Textarea, View } from '@tarojs/components'
 import { Button } from '@/components/NutUI'
 import { MOCK_IMAGES } from '@/constants/assets'
 import { REPORT_REASONS } from '@/constants/options'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
-import { reportService } from '@/services'
+import { reportService, uploadService } from '@/services'
 import type { ReportTargetType } from '@/types/domain'
 import { showToast } from '@/utils/navigation'
 import { isReportTargetType, parseRouteId } from '@/utils/route'
@@ -27,7 +27,26 @@ export default function ReportPage() {
   const targetId = parseRouteId(router.params.targetId)
   const [reason, setReason] = useState('')
   const [description, setDescription] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
+
+  const pickEvidence = async () => {
+    if (images.length >= 3) {
+      showToast('图片最多 3 张')
+      return
+    }
+    try {
+      const res = await chooseImage({ count: 3 - images.length })
+      const paths = (res.tempFilePaths || []) as string[]
+      const uploaded: string[] = []
+      for (const path of paths) {
+        uploaded.push(await uploadService.uploadImage(path))
+      }
+      setImages((prev) => [...prev, ...uploaded].slice(0, 3))
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '图片上传失败')
+    }
+  }
 
   const submit = async () => {
     if (submitting) return
@@ -46,7 +65,7 @@ export default function ReportPage() {
         targetId,
         reason,
         description,
-        images: []
+        images
       })
       showToast('举报已提交', 'success')
       navigateBack()
@@ -123,9 +142,14 @@ export default function ReportPage() {
           <View className="report-section__icon ui-icon ui-icon--camera" />
           <Text className="report-section__title">证据截图 (最多3张)</Text>
         </View>
-        <View className="report-evidence">
-          <View className="report-evidence__plus ui-icon ui-icon--add" />
-          <Text className="report-evidence__copy">上传图片</Text>
+        <View className="report-evidence-grid">
+          {images.map((image) => (
+            <Image className="report-evidence__thumb" key={image} src={image} mode="aspectFill" onClick={() => setImages(images.filter((item) => item !== image))} />
+          ))}
+          <View className="report-evidence" onClick={pickEvidence}>
+            <View className="report-evidence__plus ui-icon ui-icon--add" />
+            <Text className="report-evidence__copy">上传图片</Text>
+          </View>
         </View>
         <Text className="report-section__hint">支持 jpg、png 等格式，单张图片不超过 5MB</Text>
       </View>
