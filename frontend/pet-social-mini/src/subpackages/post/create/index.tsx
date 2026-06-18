@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { navigateBack, switchTab, useRouter } from '@tarojs/taro'
+import { chooseImage, navigateBack, switchTab, useRouter } from '@tarojs/taro'
 import { Image, Input, Picker, Text, Textarea, View } from '@tarojs/components'
 import { Button } from '@/components/NutUI'
-import { MOCK_POST_IMAGES } from '@/constants/assets'
 import { INTEREST_TAGS, VISIBILITY_LABEL } from '@/constants/options'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
-import { postService } from '@/services'
+import { postService, uploadService } from '@/services'
 import { usePetStore } from '@/store/petStore'
 import type { PostVisibility } from '@/types/domain'
 import { showToast } from '@/utils/navigation'
@@ -49,13 +48,22 @@ export default function CreatePostPage() {
     }
   }, [pickCurrentPet, ready, routePetId])
 
-  const chooseMockImage = () => {
+  const pickImages = async () => {
     if (images.length >= 9) {
       showToast('图片最多 9 张')
       return
     }
-    const next = MOCK_POST_IMAGES[images.length % MOCK_POST_IMAGES.length]
-    setImages([...images, next])
+    try {
+      const res = await chooseImage({ count: 9 - images.length })
+      const paths = (res.tempFilePaths || []) as string[]
+      const uploaded: string[] = []
+      for (const path of paths) {
+        uploaded.push(await uploadService.uploadImage(path))
+      }
+      setImages((prev) => [...prev, ...uploaded].slice(0, 9))
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '图片上传失败')
+    }
   }
 
   const toggleTag = (tag: string) => {
@@ -120,7 +128,7 @@ export default function CreatePostPage() {
           {images.map((image) => (
             <Image className="create-post__image" key={image} src={image} mode="aspectFill" onClick={() => setImages(images.filter((item) => item !== image))} />
           ))}
-          <View className="create-post__add" onClick={chooseMockImage}>
+          <View className="create-post__add" onClick={pickImages}>
             <View className="create-post__add-icon ui-icon ui-icon--camera" />
             <Text>{images.length}/9</Text>
           </View>

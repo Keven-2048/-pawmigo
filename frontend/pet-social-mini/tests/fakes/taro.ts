@@ -15,6 +15,15 @@ type LoginResult = {
   code: string
   errMsg: string
 }
+type ChooseImageResult = {
+  tempFilePaths: string[]
+  tempFiles?: unknown[]
+}
+type ReadFileOptions = {
+  filePath: string
+  success: (res: { data: ArrayBuffer }) => void
+  fail?: (error: Error) => void
+}
 
 const storage = new Map<string, unknown>()
 const calls: RequestOptions[] = []
@@ -32,6 +41,9 @@ let loginResult: LoginResult = {
   code: 'test-code',
   errMsg: 'login:ok'
 }
+let chooseImageResult: ChooseImageResult = {
+  tempFilePaths: ['wxfile://tmp_a.png']
+}
 
 export function resetTaroFake() {
   storage.clear()
@@ -48,6 +60,9 @@ export function resetTaroFake() {
   loginResult = {
     code: 'test-code',
     errMsg: 'login:ok'
+  }
+  chooseImageResult = {
+    tempFilePaths: ['wxfile://tmp_a.png']
   }
 }
 
@@ -67,9 +82,25 @@ export function getLoginCalls() {
   return [...loginCalls]
 }
 
+export function setChooseImageResult(nextResult: ChooseImageResult) {
+  chooseImageResult = nextResult
+}
+
 export async function login() {
   loginCalls.push({})
   return loginResult
+}
+
+export async function chooseImage() {
+  return chooseImageResult
+}
+
+export function getFileSystemManager() {
+  const data = new Uint8Array([1, 2, 3]).buffer
+  return {
+    readFile: ({ success }: ReadFileOptions) => success({ data }),
+    readFileSync: () => data
+  }
 }
 
 export async function request(options: RequestOptions) {
