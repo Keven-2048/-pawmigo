@@ -1,0 +1,288 @@
+.edit-pet {
+  min-height: 100vh;
+  padding: 192px 40px 168px;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+}
+
+.edit-pet__topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 100px 1fr 100px;
+  align-items: center;
+  height: 176px;
+  padding: 88px 40px 0;
+  background: rgba(247, 251, 237, 0.94);
+}
+
+.edit-pet__back,
+.edit-pet__spacer {
+  width: 80px;
+  height: 80px;
+}
+
+.edit-pet__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
+
+.edit-pet__page-title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-family: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-display, "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 31px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.edit-pet__content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.edit-pet__avatar-card,
+.edit-pet__form-card {
+  border: 1px solid rgba(193, 201, 181, 0.26);
+  border-radius: 24px;
+  background: #fff;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 8px 40px rgba(118, 185, 71, 0.08);
+  box-shadow: var(--shadow-card, 0 8px 40px rgba(118, 185, 71, 0.08));
+}
+
+.edit-pet__avatar-card {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 24px;
+}
+
+.edit-pet__avatar-shell {
+  position: relative;
+  flex: 0 0 142px;
+  width: 142px;
+  height: 142px;
+  border: 6px solid #f2f5e7;
+  border-radius: 44px;
+  background: #f2f5e7;
+  background: var(--color-surface-soft, #f2f5e7);
+}
+
+.edit-pet__avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 36px;
+}
+
+.edit-pet__camera {
+  --ui-icon-offset: 12px;
+  position: absolute;
+  right: -10px;
+  bottom: -8px;
+  width: 62px;
+  height: 62px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: #76b947;
+  background: var(--color-primary-container, #76b947);
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
+
+.edit-pet__avatar-copy {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edit-pet__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-family: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-display, "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.edit-pet__subtitle {
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+  line-height: 1.45;
+}
+
+.edit-pet__form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+.edit-pet__field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.edit-pet__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edit-pet__label {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.edit-pet__input,
+.edit-pet__picker,
+.edit-pet__textarea {
+  width: 100%;
+  border: 1px solid #e6eadc;
+  border-color: #e6eadc;
+  border-color: var(--color-surface-high, #e6eadc);
+  border-radius: 18px;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 25px;
+}
+
+.edit-pet__input,
+.edit-pet__picker {
+  height: 78px;
+  padding: 0 22px;
+  line-height: 78px;
+}
+
+.edit-pet__textarea {
+  min-height: 168px;
+  padding: 22px;
+  line-height: 1.45;
+}
+
+.edit-pet__switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 92px;
+  padding: 18px 20px;
+  border: 1px solid #e6eadc;
+  border-color: #e6eadc;
+  border-color: var(--color-surface-high, #e6eadc);
+  border-radius: 20px;
+  background: #f2f5e7;
+  background: var(--color-surface-soft, #f2f5e7);
+}
+
+.edit-pet__switch-copy {
+  min-width: 0;
+}
+
+.edit-pet__switch-title {
+  display: block;
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.edit-pet__switch-desc {
+  display: block;
+  margin-top: 8px;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.edit-pet__chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.edit-pet__chip {
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid #e6eadc;
+  border-color: #e6eadc;
+  border-color: var(--color-surface-high, #e6eadc);
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 50px;
+}
+
+.edit-pet__chip--active {
+  border-color: #76b947;
+  border-color: var(--color-primary-container, #76b947);
+  background: rgba(118, 185, 71, 0.12);
+  background: var(--color-primary-soft, rgba(118, 185, 71, 0.12));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.edit-pet__chip--orange.edit-pet__chip--active {
+  border-color: #feb246;
+  border-color: var(--color-secondary-container, #feb246);
+  background: rgba(254, 178, 70, 0.18);
+  background: var(--color-secondary-soft, rgba(254, 178, 70, 0.18));
+  color: #845400;
+  color: var(--color-secondary, #845400);
+}
+
+.edit-pet__sticky-submit {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  padding: 22px 28px 44px;
+  border-top: 1px solid rgba(193, 201, 181, 0.32);
+  background: rgba(247, 251, 237, 0.96);
+}
+
+.edit-pet__submit {
+  height: 88px;
+  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
+  background: #326b00;
+  background: var(--color-primary, #326b00);
+  box-shadow: 0 10px 22px rgba(50, 107, 0, 0.18);
+  box-shadow: var(--shadow-action, 0 10px 22px rgba(50, 107, 0, 0.18));
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+}

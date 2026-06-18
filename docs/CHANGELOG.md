@@ -1,0 +1,541 @@
+# Changelog
+
+## 2026-06-18
+
+- Merged PR #3 (backend store contract, gorm persistence, P0 parity, support-package and HTTP tests) into `plan1-foundation-auth`.
+- Opened the production-persistence preparation phase. Hardened the gorm store without requiring a live MySQL server to verify:
+  - extracted a pure `resolveConfig(getenv)` that selects mysql (when `MYSQL_DSN` is set) or sqlite (`PAWMIGO_DB_PATH`, default `pawmigo.db`), with unit tests for the three resolution cases.
+  - added a MySQL connection pool (max open 20, max idle 10, conn max lifetime 1h); sqlite path unchanged.
+  - gated dev seeding in `cmd/server` so a real MySQL is never auto-seeded — seeding now happens only on sqlite or when `PAWMIGO_SEED` is set.
+  - documented `PAWMIGO_STORE` / `MYSQL_DSN` / `PAWMIGO_DB_PATH` / `PAWMIGO_SEED` and sqlite vs mysql startup examples in README.
+- gormstore coverage 71.7% -> 72.2%; full backend `go build` / `go vet` / `go test` remain green.
+- Ran the live MySQL integration pass against a local MySQL 8.4. Added a build-tagged test (`//go:build mysql_integration`) that runs the shared `storetest.RunContract` suite against a real MySQL through the production `Open()` path; all 14 contract cases pass, and AutoMigrate creates the 9 tables (utf8mb4). The test skips unless `PAWMIGO_MYSQL_TEST_DSN` is set, so default `go test ./...` stays DB-free.
+- Added a `/readyz` database readiness probe: `store.Store` gains a `Ping() error` method (memory always healthy; gorm pings the underlying `*sql.DB`), and `GET /readyz` returns 200 `{status: ready}` when reachable or 503 `数据库不可用` when not. `/healthz` stays a static liveness probe. `internal/http` coverage 77.0% -> 77.9%.
+- Replaced the static dev bearer token with real JWT authentication, implemented with the standard library only (HS256 via crypto/hmac; no new dependency). New `internal/auth` issues/parses tokens (sub=userID, iat, exp; 7-day TTL) with the secret from `PAWMIGO_JWT_SECRET` (dev default documented as must-override in production). The login endpoint now returns a signed JWT (user id resolved through the existing store seam), and `middleware.Auth()` verifies the JWT and no longer accepts the static dev token. Added auth unit tests (round-trip / tampered / malformed / expired); `internal/auth` 79.6%, middleware 100%.
+- Added a `backend/api/.env.example` config template and a stdlib-only `.env` loader (`internal/config`): `cmd/server` loads `backend/api/.env` at startup (first `=` split so DSN values survive, comments/`export`/quotes handled, missing file optional) and never overrides real environment variables or logs values. The real `.env` stays gitignored. No new dependency; `internal/config` 87.2%.
+- Implemented real WeChat code2session login: new `internal/wechat` (stdlib net/http client reading `WECHAT_APP_ID`/`WECHAT_APP_SECRET`) and `store.EnsureUserByOpenID` (memory + gorm find-or-create user by openid, added to the shared contract suite). The login handler exchanges `{code}` -> openid -> user -> JWT when WeChat is configured, and keeps the dev fallback otherwise; `NewRouter` gained variadic options (`WithWeChatClient`) for test injection while staying source-compatible. Tests stub the WeChat API (no network); no new dependency. Verified the real credentials out-of-band (jscode2session with a dummy code returned errcode 40029 "invalid code", confirming a valid AppID/Secret rather than 40013).
+- Implemented image upload via Tencent COS presigned PUT credentials: new `internal/cos` (stdlib-only COS signature — HMAC-SHA1/SHA1, `q-sign-*` params, injectable time) and a protected `POST /api/v1/upload/credential` that validates the extension, builds `uploads/{userID}/{ts}-{rand}.{ext}`, and returns `{uploadUrl, fileUrl, objectKey, expiresIn}` (503 when COS is not configured). `NewRouter` gained `WithCOSSigner`. Offline tests cover determinism/escaping/200/400/503/401; signature correctness was validated out-of-band against the real bucket (presigned PUT returned 200, cleanup DELETE 204). No new dependency; `internal/cos` 86.5%.
+- Wired the mini-program remote login to a real WeChat code: in remote mode `authService.login` now calls `Taro.login()` (named alias import, WeChat-safe) to obtain a real `code` and posts it to `/auth/wechat-login` instead of a hardcoded dev code; the service contract, mock mode, and token storage/header are unchanged. Verified with `pnpm typecheck`, `pnpm build:weapp` (no warnings), and `pnpm test` (97/97).
+- Wired real image upload into the mini-program post-create flow through the service seam (A-4). Added `UploadService.uploadImage(tempFilePath)` to the contract and `AppServices`: mock mode echoes the local temp path (offline preview, no network); remote mode performs the backend's two-step presigned direct upload — infers the extension (`jpg/jpeg/png/webp`, fallback `jpg`), `POST /upload/credential {ext}`, reads the file bytes via `getFileSystemManager().readFile` (named Taro import) into an `ArrayBuffer`, then raw-`PUT`s them to the returned `uploadUrl` with no Authorization header (COS auth is in the query string), and returns `fileUrl` (throws `图片上传失败` on non-2xx). The post-create page replaced the mock-image cycler with `chooseImage` -> `uploadService.uploadImage` (9-image cap preserved); `MOCK_POST_IMAGES`/`chooseMockImage`/`Taro.*` residue removed. Taro test fake gained `chooseImage`/`setChooseImageResult` and `getFileSystemManager`; added two remote upload tests (credential+PUT sequence, no auth header; non-2xx rejection). Scoped to the post-image path only (pet avatar / report images untouched). Verified with `pnpm typecheck`, `pnpm build:weapp` (no warnings), and `pnpm test` (99/99).
+- Closed out the A-4 image surface by reusing `uploadService` on the remaining pickers (no service-layer changes). Pet create + pet edit avatars: added an `avatarUrl` state, made the avatar shell tap `chooseImage({count:1})` -> `uploadService.uploadImage` -> `setAvatarUrl`, displayed/submitted `avatarUrl || DEFAULT_AVATARS[type]` (edit backfills the existing avatar from the loaded pet). Report evidence: added an `images` state (cap 3) with a `chooseImage` -> upload picker, thumbnail previews (tap to remove), and submits the real `images` instead of `[]`; the reported-target preview image is unchanged. Report SCSS gained layout-only `.report-evidence-grid`/`.report-evidence__thumb` rules (no color/background/border/shadow, so no WXSS hard-value fallback needed). All Taro APIs named-imported; pages still import services only from `@/services`. Verified with `pnpm typecheck`, `pnpm build:weapp` (no warnings), and `pnpm test` (99/99).
+- Opened A-3 (admin web) and scaffolded the mock-first admin shell at `admin/pet-social-admin`. Stack: Vite 8 + React 19 + TS (strict) + antd 5 + `@ant-design/pro-components` + react-router-dom 7 (chosen over Ant Design Pro/umi for a controllable Vite build; antd pinned to v5 to satisfy the pro-components peer). Mirrors the mini-program service seam: `services/contracts.ts` + `mock/` (default; `admin`/`admin123` login, fixed dashboard stats) + `remote/` (fetch client against `/api/v1/admin`, `{code,message,data}` envelope unwrap, Bearer token from `localStorage['admin_token']`) switched by `import.meta.env.VITE_API_MODE`. Token helpers, a login page (antd Form), public/protected route guards, a `ProLayout` shell with a 9-route menu (dashboard/users/pets/posts/comments/invites/reports/announcements/admins) + admin nickname + logout, a dashboard with mock stat cards, and `PageContainer + Empty` placeholder pages for the other 8 routes. App entry wraps `ConfigProvider` (zhCN locale + green theme) and antd `App`. `node_modules`/`dist` gitignored. Verified with `pnpm typecheck` (tsc -b), `pnpm lint`, and `pnpm build` (all green). Known gap: `@ant-design/icons` not yet installed, so menu items use text badges for now; real ProTable CRUD pages and backend admin endpoints are later slices.
+
+## 2026-06-10
+
+- Opened the next-phase design direction after the Mock-first mini-program MVP delivery.
+- Added `docs/superpowers/specs/2026-06-10-remote-api-go-skeleton-design.md` for the approved real API / Go backend integration preparation phase.
+- Added `docs/superpowers/plans/2026-06-10-remote-api-go-skeleton.md` to guide implementation with TDD checkpoints and verification commands.
+- Added frontend remote service mode with service contracts, Mock adapter, Taro request client, remote adapter, and API envelope handling.
+- Added `TARO_APP_API_BASE_URL` compile-time replacement so WeChat bundles can be built in remote mode without Node `process` references.
+- Added frontend regression tests for service mode selection, remote request URL/header behavior, API error normalization, 401 token clearing, and P0 endpoint mapping.
+- Added `backend/api` Go Gin P0 backend skeleton with development login, auth middleware, response wrapper, in-memory store, P0 routes, and route/smoke tests.
+- Verified the Go backend can start locally and respond to `/healthz` and `/api/v1/auth/wechat-login`.
+- Tightened Go backend blocked-user rule enforcement so direct invite-detail, invite-action, and post-comment endpoints cannot bypass block visibility.
+- Replaced temporary handwritten Go number-format helpers with standard `strconv` usage in backend code/tests.
+- Verified `backend/api` with `go test ./...`, local server build/start smoke, and no remaining `:8080` listener after cleanup.
+- Verified the mini-program in Mock mode with `npm run typecheck && npm run build:weapp && npm test`; 95 Node tests passed.
+- Verified remote mini-program compilation with `TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 npm run build:weapp`.
+- Updated `docs/SESSION_STATE.md` so future sessions know the next phase is frontend remote adapter plus Go Gin P0 in-memory backend skeleton, not full database/admin/Docker production work.
+- Opened PR #2 for the remote API / Go P0 backend skeleton phase: https://github.com/Keven-2048/-pawmigo/pull/2
+- Merged PR #2 into `plan1-foundation-auth` and re-verified backend tests, mini-program typecheck/build/tests, and remote-mode build.
+
+## 2026-06-16
+
+- Added `backend/api/internal/store/store.go` as a store-layer abstraction for the Go backend.
+- Mirrored the `memory.Store` public method surface into a `store.Store` interface without changing the existing memory implementation.
+- Duplicated the memory payload structs into the new `store` package so future storage implementations can share the same request shapes.
+- Added shared store-layer errors `ErrUnauthorized` and `ErrNotFound` with the same user-facing messages as the memory store.
+- Verified `cd backend/api && GOCACHE=/private/tmp/go-build-cache go build ./...` succeeds.
+
+## 2026-06-17
+
+- Moved the GORM dependencies (`gorm.io/gorm`, `gorm.io/driver/mysql`, and `github.com/glebarez/sqlite`) into `backend/api/go.mod` / `go.sum`.
+- Added gormstore contract coverage in `backend/api/internal/store/gormstore/store_test.go` and fixed the SQLite duplicate-index issue found by those tests.
+- Normalized backend store interfaces so memory payloads/errors use `store.*` aliases and `middleware.Auth` / `NewRouter` accept `store.Store`.
+- Parameterized internal HTTP tests to run against both memory and gorm-backed stores.
+- Added `cmd/server` store selection via `PAWMIGO_STORE`, keeping memory as the default and enabling seeded gorm persistence when `PAWMIGO_STORE=gorm`.
+- Committed the previously uncommitted `store.Store` contract, gormstore persistence, and `PAWMIGO_STORE` runtime selection as a single backend commit, and checked in `CLAUDE.md` project guidance.
+- Added a black-box `store.Store` contract suite (`internal/store/storetest/contract.go`) run against both the memory and gorm stores, raising memory store direct coverage from 0% to 63.2%.
+- Enforced four P0 store rules previously only present in the frontend Mock, in both memory and gorm: pet tag count (<=10) / description length (<=500) limits, a per-user daily invite cap (<10/local day, independent of the 24h duplicate guard), post content length (<=1000), and report target existence/visibility validation.
+- Un-skipped the four pending-contract cases so the shared suite asserts the new rules across both stores; coverage now memory 67.9%, gorm 71.7%, http 74.1%.
+- Verified `go build ./...`, `go vet ./...`, and `go test -cover ./...` pass after each change with isolated `GOCACHE`.
+- Added unit tests for the previously untested `internal/http/response` and `internal/http/middleware` packages, taking both from 0% to 100% statement coverage; `cmd/server` main wiring is intentionally left uncovered rather than refactored just to test it.
+- Added HTTP-level integration tests asserting the four new P0 validation rules surface as HTTP 400 with the correct Chinese message through the real API endpoints (pet profile limits, daily invite cap, post content length, report target visibility), run against both memory and gorm backends; `internal/http` coverage 74.1% -> 77.0%.
+
+## 2026-06-06
+
+- Added persistent handoff guardrails for future sessions.
+- Added `AGENTS.md` with mandatory startup checklist, current implementation scope, hard guardrails, Stitch reference, and end-of-session update rules.
+- Added `docs/DEVELOPMENT_PLAN.md` with the approved small-program MVP plan.
+- Added `docs/SESSION_STATE.md` with current phase, completed work, constraints, next step, and validation status.
+- Added `README.md` as the repository entrypoint with handoff instructions.
+- Added `frontend/pet-social-mini` Taro + React + TypeScript mini-program project.
+- Added NutUI/Taro, Zustand, Taro 4.2.0, TypeScript, Sass, and Babel/Taro build configuration.
+- Added app config with four tabs: 附近, 社交圈, 邀请, 我的.
+- Added shared theme and components: `TopBar`, `Section`, `EmptyState`, `TagList`, `PetCard`, `PostCard`, `InviteCard`.
+- Added typed domain models and Mock-first service layer for users, pets, nearby list, invites, posts, comments, reports, blocks, privacy settings, and location.
+- Added Zustand stores for user/session, pet selection, location authorization, and UI state.
+- Implemented MVP pages for login, pet creation/management/profile, nearby/filter, invite list/actions, feed, post creation/detail, mine, privacy, report, and block list.
+- Added local TabBar icons for 附近, 社交圈, 邀请, and 我的.
+- Added README commands for installing, type-checking, building, and opening the mini program.
+- Updated `.gitignore` to ignore nested build and dependency outputs.
+- Verified `pnpm typecheck` and `pnpm build:weapp`; build succeeded with non-blocking NutUI/Taro CSS warnings.
+
+## 2026-06-07
+
+- Added dedicated invite creation and invite detail pages under `subpackages/invite`.
+- Updated nearby pet cards, pet profile, and invite list navigation to use the new invite pages.
+- Removed invite-creation responsibility from pet management to keep that page focused on pet CRUD actions.
+- Implemented pet edit form with loading from `petService.detail` and saving through `petStore.updatePet`.
+- Verified `pnpm typecheck` and `pnpm build:weapp`; build succeeded with the same non-blocking NutUI/Taro CSS warnings.
+
+## 2026-06-08
+
+- Added `src/hooks/useAuthGuard.ts` and applied route/session guards to protected pages in the mini-program MVP.
+- Added a minimal Node/TypeScript test command and `tsconfig.test.json` for focused pure utility tests.
+- Added `src/utils/ownership.ts` with current-user ownership and invite perspective helpers.
+- Updated invite detail to use `useUserStore().user?.id` instead of hardcoding the Mock user ID when deciding received/sent actions.
+- Updated post detail to use `useUserStore().user?.id` instead of hardcoding the Mock user ID when deciding whether to show delete actions.
+- Added ownership tests covering invite perspective and missing-current-user behavior.
+- Updated `.gitignore` to ignore generated `.test-dist` test output.
+- Verified `pnpm test`, `pnpm typecheck`, and `pnpm build:weapp`; build succeeded with the same non-blocking NutUI/Taro CSS warnings.
+- Added `canDeleteComment` ownership helper and tests so post-detail comment deletion is only offered to the comment owner or post owner.
+- Updated post detail to hide delete controls for comments the current user cannot delete.
+- Re-verified `pnpm test`, `pnpm typecheck`, and `pnpm build:weapp`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings.
+- Fixed WeChat Mini Program runtime crash `ReferenceError: process is not defined` by adding Taro `defineConstants` replacement for `process.env.TARO_APP_API_MODE`.
+- Added a runtime bundle regression test that fails when `dist/common.js` contains `process.env`.
+- Rebuilt and verified the generated WeChat bundle no longer contains `process.env` or `process` references in `common.js`, `pages`, or `subpackages`.
+- Expanded the runtime bundle regression test to recursively scan all generated `dist/**/*.js` files for Node `process` references.
+- Re-verified `pnpm test`, `pnpm typecheck`, and `pnpm build:weapp`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings.
+- Added local Mock SVG assets for pet avatars, login hero, and feed post images.
+- Replaced remote Unsplash Mock image URLs with local `/assets/mock/*.svg` asset constants.
+- Updated Taro copy configuration so local Mock image assets are copied into `dist/assets/mock`.
+- Added local asset regression tests that reject Unsplash dependencies and verify compiled Mock image assets exist after build.
+- Verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 6/6.
+- Added Mock service rule regression tests for duplicate invites, self/past invites, empty posts, 9-image post limits, privacy visibility, stranger-invite settings, and block interactions.
+- Added a Node test alias setup so service tests can import source files that use the `@/*` alias.
+- Centralized Mock post visibility checks and fixed blocked-user behavior so blocked users cannot like or comment on each other's posts.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 10/10.
+- Added remaining Mock rule tests for default-pet reassignment after delete, fuzzy nearby distance without raw coordinates, report persistence, block persistence, and duplicate-block idempotency.
+- Added architecture tests that protect the service-layer boundary and require protected pages to use the shared auth guard.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 15/15.
+- Added high-risk page action regression coverage for explicit failure feedback paths.
+- Added user-friendly error handling for post-detail like/delete, pet-management default selection, privacy save, and block-list loading.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 17/17.
+- Added duplicate-submit regression coverage for key form pages.
+- Added submitting/saving loading states and duplicate-submit guards for create-pet, create-post, report, and privacy-save flows.
+- Re-verified `pnpm typecheck`, `pnpm build:weapp`, and `pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 18/18.
+- Tightened protected-page architecture coverage so only login remains public; create-pet is now guarded for logged-in first-pet creation.
+- Added `useAuthGuard({ requirePet: false })` to the create-pet page.
+- Added Mock service regression coverage for blocked invite visibility and blocked post comment-list visibility.
+- Updated Mock invite and comment-list APIs so blocked users cannot see each other's historical invites, open blocked invite details, or read blocked post comments by direct ID.
+- Tightened duplicate-submit regression coverage to require submit/save early-return guards and disabled submit buttons.
+- Added missing duplicate-submit guards and disabled states to pet edit and invite creation pages.
+- Re-verified `pnpm typecheck`, `pnpm build:weapp`, and `pnpm test`; build still succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 18/18.
+- Replaced the full NutUI/Taro stylesheet import with targeted Button and Popup style imports.
+- Added a local `src/components/NutUI` wrapper and rewired app code to import NutUI components through it.
+- Added architecture tests preventing root NutUI component imports and full NutUI stylesheet reintroduction.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds, tests pass 20/20, and generated `app-origin.wxss` is reduced to roughly 28K. Remaining build warnings are limited to NutUI/Taro CSS ordering and one `postcss-calc` CSS variable warning.
+- Added `resolveAuthGuardDestination` and tests for unauthenticated, first-pet, and ready route states.
+- Updated `useAuthGuard` to reuse the tested auth-guard destination helper.
+- Added architecture coverage requiring key page bootstrap data loads to expose explicit failure feedback.
+- Added bootstrap load failure toasts for nearby, mine, create-post, and privacy pages.
+- Added Mock service regression coverage for like idempotency, comment count updates, comment privacy, invite action ownership, and daily invite limits.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 25/25.
+- Added duplicate-processing guards and disabled/loading button states for invite accept, reject, and cancel actions on the invite list and invite detail pages.
+- Added architecture coverage to keep invite action duplicate-processing guards in place.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds with the same non-blocking NutUI/Taro CSS warnings, and tests pass 26/26.
+- Centralized shared component SCSS imports in `src/app.scss` and removed the per-component style side-effect imports from shared component TSX files.
+- Added architecture coverage to keep shared component styles imported once from the app stylesheet.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds, tests pass 27/27, and the previous `mini-css-extract-plugin` CSS order warnings are eliminated. One non-blocking NutUI `postcss-calc` CSS variable warning remains.
+- Disabled CSS minimizer calc optimization with Taro `csso.config.calc = false` to avoid NutUI `rpx * var(...)` parse warnings.
+- Added architecture coverage to keep the CSS minimizer calc setting in place.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 28/28.
+- Added explicit bootstrap failure feedback for pet-management `loadPets()`.
+- Added duplicate-operation guards and disabled delete button state for pet-management default/delete actions.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 28/28.
+- Added local login submitting state so the WeChat login button stays disabled across login, pet loading, and route transition.
+- Extended duplicate-submit architecture coverage to include the login page.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 28/28.
+- Added shared route parameter utilities for positive IDs and supported report target types.
+- Replaced direct route-param `Number(...)` parsing in pet detail/edit, invite create/detail, post detail, and report pages with validated parsing and explicit invalid-parameter states.
+- Added route utility tests and architecture coverage requiring pages to parse route params through shared utilities.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 31/31.
+- Fetched the Stitch design system and key prototype screens for login, create-pet, and nearby list through Stitch MCP.
+- Added architecture regression coverage for core Stitch alignment anchors on theme tokens, login, create-pet, nearby, and pet cards.
+- Updated shared theme tokens and global app font usage to follow the Stitch Plus Jakarta Sans / Be Vietnam Pro typography and soft green shadow more directly.
+- Aligned the login page with the Stitch prototype by adding centered branding, a paw brand mark, asymmetric pet montage, floating context tags, and an agreement checkbox required before WeChat one-tap login.
+- Aligned the create-pet page with the Stitch prototype by adding a fixed top bar, round avatar upload area, two-column form grids, segmented gender controls, and a bottom sticky submit action.
+- Aligned the nearby list first screen with the Stitch prototype by adding the location bar, search input, quick filters, and pet cards with status pills plus invite/view actions.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 32/32.
+- Fetched and reviewed the Stitch pet profile and invite creation prototype screens.
+- Added architecture regression coverage for pet profile and invite creation Stitch flow anchors.
+- Aligned the pet profile page with the Stitch prototype by adding fixed nav controls, immersive cover image, floating avatar, de-emphasized owner strip, pet metric cards, and a fixed bottom invite bar.
+- Aligned the invite creation page with the Stitch prototype by adding a fixed top bar, target pet card, selected own-pet card, three-column invite type cards, combined time/location card, safety tips, and sticky send action.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 33/33.
+- Fetched and reviewed the Stitch invite list and invite detail prototype screens.
+- Added architecture regression coverage for invite list, invite card, and invite detail Stitch transaction anchors.
+- Aligned the invite list page with the Stitch prototype by adding an appbar, received/sent segmented tabs, status filter chips, and filtered invite rendering.
+- Aligned invite cards with the Stitch prototype by adding paired pet avatars, status pills, schedule/location rows, and accept/reject/detail actions.
+- Aligned the invite detail page with the Stitch prototype by adding a status strip, paired-pet match card, activity arrangement cards, safety tip card, and fixed bottom action bar.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 34/34.
+- Fetched and reviewed the Stitch social feed, create-post, and post-detail prototype screens.
+- Added architecture regression coverage for feed/post Stitch social anchors.
+- Aligned the social feed page with the Stitch prototype by adding a brand appbar, underline feed tabs, and a floating publish button.
+- Aligned post cards with the Stitch prototype by adding a more action, location pill, larger media presentation, and share action.
+- Aligned the create-post page with the Stitch prototype by adding a fixed topbar, pet identity card, transparent text area, photo upload grid, utility pills, 2x2 visibility grid, and sticky publish action.
+- Aligned the post-detail page with the Stitch prototype by adding an independent article card, media grid, topic tags, interaction bar, comment bubbles, and bottom comment input.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 35/35.
+- Fetched and reviewed the Stitch mine, pet-management, privacy-settings, and report prototype screens.
+- Added architecture regression coverage for mine, pet-management, privacy-settings, and report Stitch account anchors.
+- Aligned the mine page with the Stitch prototype by adding a compact appbar, centered profile, stats card, horizontal pet strip, quick actions, and grouped menu rows.
+- Aligned the pet-management page with the Stitch prototype by adding a fixed-style topbar, green pet-count summary, pet cards with default badges, visibility state rows, switch-like default controls, edit entry, and delete actions.
+- Aligned the privacy-settings page with the Stitch prototype by adding a topbar, location-privacy safety card, grouped social/system/account sections, black-list entry, and sticky save action.
+- Aligned the report page with the Stitch prototype by adding a topbar, target summary card, two-column reason grid, detail textarea, evidence upload placeholder, and sticky submit action.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 36/36.
+- Fetched and reviewed the Stitch nearby empty-state and nearby-filter popup prototype screens.
+- Added architecture regression coverage for nearby empty-state and filter-sheet Stitch discovery anchors.
+- Aligned the nearby empty state with the Stitch prototype by adding a branded pet illustration block, social-circle CTA, and relocate action instead of the generic empty-state component.
+- Aligned the nearby filter popup with the Stitch prototype by adding a drag handle, close button, grouped filter sections, invitation-availability switch row, reset action, and result-count submit action.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 37/37.
+- Reworked the primary visual foundation after user feedback that the UI did not feel like the prototype.
+- Downloaded Stitch-style pet and owner photography into local mini-program assets and replaced SVG placeholder mock images with compressed local JPEG assets.
+- Updated Mock users, pets, and feed posts to use the new photo assets and more prototype-like sample names/content.
+- Reworked login, nearby discovery, PetCard, feed header, and PostCard styling to better match the Stitch soft-minimal, photo-led visual system.
+- Added regressions preventing primary visual surfaces from falling back to emoji/text placeholder icons, requiring local photo assets, and keeping mock photos below the mini-program asset warning threshold.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 40/40.
+- Reworked the screenshot-reported visual root causes across the mini-program:
+  - added shared `ui-button` and `ui-icon` primitives in the theme layer
+  - replaced the login letter mark with a CSS paw mark
+  - replaced text/symbol placeholder icons across main pages and key secondary pages with CSS-drawn semantic icons
+  - regenerated the bottom TabBar PNG assets as line icons for nearby, feed, invite, and mine
+  - moved visual-critical login, nearby, pet-card, invite-card, mine, and empty-state actions to local `ui-button` views
+  - added scoped NutUI Button color overrides for remaining form/detail actions so default and disabled styles do not render as blank outline buttons
+  - reduced heavy 800/900 font weights across primary surfaces and shared components to better match Stitch soft-minimal typography
+- Added visual regression coverage for placeholder icon text, primary `ui-button` usage, NutUI button color overrides, and exact TabBar icon asset hashes.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 43/43.
+- Investigated the user's WeChat Developer Tools screenshots that showed theme colors, typography, iconography, bottom TabBar icons, and button fill states still diverging from the Stitch prototype.
+- Identified a mini-program rendering risk where Stitch design tokens were only declared on `:root`; bound the same tokens to `:root, page` so page-level WXSS can reliably inherit the visual system in WeChat.
+- Updated the shared visual tokens to match Stitch more closely:
+  - background `#f7fbed`
+  - primary `#326b00`
+  - primary container `#76b947`
+  - secondary container `#feb246`
+  - text `#191d15`
+  - softer text `#41493a` / `#727a68`
+- Added hard-value fallbacks before CSS-variable declarations for global page styles, shared cards, shared `ui-button` variants, NutUI button overrides, and the login CTA so primary actions do not degrade into blank/transparent buttons if CSS variables are not resolved.
+- Replaced the remaining text-based `ui-icon--info` glyph with a pure CSS-drawn icon.
+- Regenerated the bottom TabBar PNG assets again with clearer semantic line icons:
+  - nearby: map pin instead of target/crosshair
+  - feed: rounded chat bubbles
+  - invite: rounded envelope with seal
+  - mine: user/profile outline
+- Added visual regression coverage requiring Stitch theme tokens to be bound to `page` for WeChat rendering reliability.
+- Updated TabBar asset hash regression coverage for the new icon set.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, tests pass 44/44, generated `dist/app-origin.wxss` contains `:root,page` Stitch tokens and hard-value button fallbacks, and `dist/assets/tabbar/*.png` matches the new icon hashes.
+- Re-reviewed the user's main WeChat Developer Tools screenshots and confirmed the current pass should focus on root visual mismatches: theme color inheritance, button fill state, text hierarchy, icon quality, and TabBar semantics.
+- Reconfirmed Stitch MCP connectivity for `projects/5635601718767463341` and used the Stitch design system tokens as the source of truth for the visual pass.
+- Added regression coverage that requires WeChat-safe hard `background-color` fallbacks on shared `ui-button` variants.
+- Added regression coverage that requires main visual actions and secondary topbar controls to use CSS-drawn icons instead of text glyph placeholders.
+- Extended shared `ui-icon` primitives with check, add, close, chevron, more, heart, share, camera, back, edit, visibility, and visibility-off icons.
+- Replaced residual text glyph icons across login, nearby, feed, invite, mine, pet detail/manage/create, invite create/detail, post create/detail, privacy, and report surfaces.
+- Softened prominent font weights across primary visual surfaces, cards, chips, actions, and settings rows to better match the Stitch soft-minimal typography.
+- Updated the feed floating publish button to use the Stitch `primary-container` treatment rather than deep primary fill.
+- Rebuilt the WeChat output and confirmed `dist/app.json` uses the Stitch TabBar chrome (`#f7fbed`, `#326b00`, `#727a68`, `borderStyle: black`) and the regenerated semantic TabBar icon assets.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 49/49.
+- Responded to the user's WeChat Developer Tools screenshots showing the UI still read as black/white wireframe with incorrect theme colors, heavy text, weak iconography, blank-looking buttons, and crosshair-like TabBar icons.
+- Added screenshot-level regression coverage requiring primary screens to keep hard Stitch colors and softened typography.
+- Added shared-card visual regression coverage so `PetCard`, `PostCard`, `InviteCard`, and `EmptyState` do not fall back to gray wireframe styling.
+- Added regression coverage for pet edit and block-list secondary account/settings visual anchors.
+- Added an independent `subpackages/pet/edit/index.scss` and aligned the pet edit screen with a Stitch-style topbar, avatar card, rounded form controls, chip grids, switch rows, and sticky save action.
+- Reworked the block-list page into a Stitch-style settings screen with topbar back navigation, safety card, CSS-drawn block icon, card rows, avatar markers, and status pills.
+- Added hard Stitch color fallbacks and lighter text weights across screenshot-reported primary surfaces and shared components: login, nearby, feed, invite, mine, `PetCard`, `PostCard`, `InviteCard`, `EmptyState`, `TopBar`, `Section`, and `TagList`.
+- Softened residual heavy `font-weight: 700` styles across key secondary pages to better match the Stitch soft-minimal typography.
+- Regenerated bottom TabBar PNG assets again so nearby is a map pin instead of a compass/crosshair, feed is rounded chat bubbles, invite is a rounded envelope, and mine is a rounded user/profile icon.
+- Updated TabBar semantic constants and hash tests for the new pin/social/mail/person asset set.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 52/52.
+- Added broad secondary-page visual regression coverage that rejects bare CSS variable-only color/background/shadow/border declarations in `subpackages/**/index.scss`.
+- Added WeChat-safe Stitch hard fallbacks across remaining subpackage SCSS files for page backgrounds, card shadows, text colors, surface fills, outlines, and primary/secondary action fills.
+- Softened the publish-post image add tile and report evidence upload tile from heavy dashed wireframes into lighter Stitch-style upload surfaces.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 53/53.
+- Followed up on the user's main-screen screenshots that still showed old crosshair TabBar icons, blank/outline buttons, black-heavy typography, and mismatched theme/icon rendering.
+- Added main-page/shared-component visual regression coverage that rejects bare CSS variable-only color/background/shadow/border declarations where they can degrade in WeChat WXSS.
+- Added screenshot-specific regression coverage for remaining nearby-search and mine-page wireframe fallbacks.
+- Added a workspace WeChat project config regression so the repository root project must point to `frontend/pet-social-mini/dist/`.
+- Fixed remaining main-page visual fallbacks:
+  - nearby search icon now has hard muted-green color fallbacks instead of bare `var(--color-outline)`.
+  - mine search icon now uses hard primary-green fallbacks.
+  - mine add-pet tile was softened from a heavy dashed outline to a subtle green filled surface.
+  - mine notification dot now has a hard danger-color fallback.
+- Updated root `project.config.json` with `miniprogramRoot: "frontend/pet-social-mini/dist/"` so WeChat Developer Tools opened from the repo root loads the rebuilt mini-program package instead of stale or incorrect project content.
+- Rebuilt `frontend/pet-social-mini/dist` and confirmed the generated WXSS contains the new visual fallbacks.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings, and tests pass 56/56.
+- Re-reviewed the user's latest WeChat Developer Tools screenshots for login, nearby permission/empty state, feed, invite list, and mine; treated the mismatch as a visual/rendering bug focused on theme color, text hierarchy, button fill state, and icon/tabbar fidelity.
+- Reconfirmed Stitch MCP connectivity for `projects/5635601718767463341` and re-read the current "Warm & Healing Pet Social" design system before changing styles.
+- Added cache-busting Stitch v2 TabBar asset filenames and rewired `app.config.ts` to use:
+  - `assets/tabbar/nearby-stitch-v2.png`
+  - `assets/tabbar/feed-stitch-v2.png`
+  - `assets/tabbar/invite-stitch-v2.png`
+  - `assets/tabbar/mine-stitch-v2.png`
+- Kept the semantic pin/social/mail/person icon artwork and updated asset regressions so future builds must use the v2 TabBar paths instead of the old non-versioned paths.
+- Strengthened global visual foundations with WeChat-safe font inheritance, card border fallbacks, a soft shadow token, primary-button text fallbacks, and button color inheritance.
+- Softened screenshot-reported primary surfaces and shared components:
+  - login tagline/button/agreement hierarchy
+  - nearby search, permission card, and action buttons
+  - feed title/tabs/FAB
+  - invite title/tabs/filter chips
+  - mine stats/pet/menu cards and quick actions
+  - `PetCard`, `PostCard`, `InviteCard`, and `EmptyState`
+- Rebuilt `frontend/pet-social-mini/dist` and confirmed generated `dist/app.json` now references the `*-stitch-v2.png` TabBar icons with Stitch chrome colors.
+- Re-verified `pnpm typecheck && pnpm build:weapp && pnpm test`; build succeeds without warnings and tests pass 58/58.
+- Clarified the README WeChat Developer Tools opening path: opening either the repository root or `frontend/pet-social-mini` should load the generated `frontend/pet-social-mini/dist` package.
+- Expanded WeChat project-config regression coverage so root, mini-program subproject, and generated `dist` project configs all point at the correct mini-program output roots.
+- Fixed the WeChat real-device runtime crash where compiled default `Taro` imports produced callable-wrapper API access such as `u().getStorageSync("token")`.
+- Replaced default `Taro.*` runtime API calls with named Taro API imports for storage, login, route navigation, and toast calls across the mini-program source.
+- Added a WeChat runtime bundle regression test that rejects callable default-import wrapper calls for Taro runtime APIs in generated `dist/**/*.js` bundles.
+- Rebuilt `frontend/pet-social-mini/dist` and confirmed the generated bundle no longer contains `*.().getStorageSync`, `*.().navigateTo`, or related callable-wrapper Taro API access.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 59/59.
+- Re-reviewed the user's latest WeChat Developer Tools screenshots showing secondary pages still had small proportions, duplicate top navigation, off-center icons, and sticky action buttons rendering as small left-side capsules.
+- Fixed the duplicate top navigation root cause by setting `navigationStyle: 'custom'` on all 16 rendered MVP pages, including main tab pages and every subpackage page with an app-level topbar.
+- Re-scaled the screenshot-reported surfaces closer to the Stitch 390px mobile prototype rhythm:
+  - main tab pages now start below the custom navigation area with 40rpx horizontal page rhythm
+  - create-pet, create-post, invite-create, invite-detail, post-detail, and edit-pet fixed topbars now use the same larger custom navigation band
+  - pet detail uses wider 40rpx page margins, a lower floating hero nav, and matching full-bleed hero offsets
+  - pet management, privacy, report, and block-list in-flow topbars now start below the custom navigation safe area
+- Fixed icon centering and action alignment by adding shared `ui-icon` pseudo-element centering, removing scaled-down topbar icon containers on the screenshot-reported pages, and correcting `PostCard` action icon baselines.
+- Forced remaining NutUI sticky action buttons such as publish and send-invite to render full-width, preventing them from collapsing into small bottom-left capsules in WeChat.
+- Added regression coverage for:
+  - all rendered pages using custom navigation to prevent duplicate WeChat top bars
+  - screenshot-reported page proportions and fixed topbar dimensions
+  - centered shared icon primitives and full-width NutUI sticky action buttons
+- Rebuilt `frontend/pet-social-mini/dist` and confirmed every generated `dist/**/index.json` page config contains `navigationStyle: "custom"`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 62/62.
+- Followed up on the user's latest screenshots showing right-side appbar icons colliding with the WeChat capsule and primary surfaces still feeling too small.
+- Added a shared `.capsule-safe-appbar` pattern and applied it to Feed, Invite, Mine, and Pet Management right-side appbar actions.
+- Re-scaled screenshot-reported primary surfaces closer to the Stitch prototype:
+  - Mine profile/stats/pet strip/quick actions/menu rows/logout action
+  - Feed appbar/title/tabs and `PostCard` avatar/name/meta/content/actions
+  - Invite appbar/tabs/filter chips and `InviteCard` avatars/schedule/status/actions
+  - Pet Management topbar/summary/cards/visibility/default/action controls
+- Removed residual `transform: scale(0.x)` shrinkage from primary flow icon containers across login, nearby, mine, invite cards, create post, invite create/detail, pet edit, post detail, privacy, report, and block screens.
+- Added visual regression coverage requiring:
+  - main tab appbars to reserve WeChat capsule space before right-side actions
+  - primary screenshot surfaces to keep prototype-scale typography and icon dimensions
+  - primary flow styles to avoid shrinking clickable icon containers below prototype scale
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 65/65.
+- Followed up on the user's latest screenshots showing post action icons, post-detail composer, pet-detail identity/metric layout, and secondary right-side topbar controls still needed refinement.
+- Reworked shared post action icon geometry:
+  - replaced the old double-blob heart drawing with a centered CSS heart primitive
+  - corrected the comment bubble tail anchor so it no longer drops below the action baseline
+  - tightened the share arrow geometry and added dedicated `post-action-icon` classes for `PostCard` and post detail
+- Reworked post-detail layout:
+  - aligned the interaction row around fixed 42rpx action icon boxes
+  - replaced the NutUI comment send button with a local `ui-button` capsule
+  - changed the bottom composer to a stable two-column grid so the input and send action keep predictable proportions
+- Reworked pet-detail layout:
+  - split pet identity copy into its own column and turned distance into a separate pill
+  - added an owner-copy wrapper so owner text no longer crowds the avatar
+  - vertically centered metric cards and stabilized value/label sizing
+- Added secondary topbar capsule-safe coverage for post detail, invite create, invite detail, and pet detail right-side controls.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 68/68.
+- Centralized current-phase Mock-only enforcement in `src/services/index.ts` by wrapping every exported service method with `useMock(...)`.
+- Added architecture regression coverage that rejects unguarded `mockApi` calls in exported services, including multi-line `useMock` handlers.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 69/69.
+- Downloaded Stitch prototype HTML for Mine, Feed, and pet detail to continue source-level visual/structure comparison inside the MVP scope.
+- Re-aligned Mine page quick actions with the Stitch prototype by changing the first action from `记录生活` to `切换主宠`, adding a CSS-drawn swap icon, and making both quick actions route to pet management.
+- Added account-anchor regression coverage so Mine keeps the `切换主宠` / `宠书管理` quick-action structure and does not revert to the previous mismatch.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 69/69.
+- Re-aligned the Social Circle TabBar icon with the Stitch prototype's pet/paw semantic by generating `feed-stitch-v3.png` and `feed-stitch-v3-active.png`, updating `app.config.ts` to use the v3 cache-busting paths, and changing `tabbarSemantics.feed` from `social` to `pets`.
+- Updated TabBar asset regression coverage to lock the new feed v3 hashes and reject the old `feed-stitch-v2` app-config path.
+- Rebuilt `frontend/pet-social-mini/dist`; generated `dist/app.json` now references `assets/tabbar/feed-stitch-v3.png` and `assets/tabbar/feed-stitch-v3-active.png`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 69/69.
+- Re-aligned Mine stats with the Stitch prototype by changing the row to `关注` / `粉丝` / `动态` / `邀请` and removing the previous `宠物` / `获赞` / `邀约` mismatch.
+- Reworked the Mine pet strip toward the Stitch prototype with circular pet portraits, a green active ring, an `ACTIVE` default-pet badge, and `主宠` helper text.
+- Added account visual regression coverage for the Mine stats labels, circular pet avatar wrapper, active ring, and default-pet badge.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 69/69.
+
+## 2026-06-09
+
+- Followed up on screenshot feedback that topbar icons could still sit too close to the WeChat capsule and CSS-drawn icons could appear off-center across main and secondary pages.
+- Increased the shared WeChat capsule reserve from 188rpx to `--wechat-capsule-reserve: 232px` and applied the variable to:
+  - main tab `.capsule-safe-appbar`
+  - invite creation topbar
+  - invite detail topbar
+  - post detail topbar
+  - pet detail floating navigation
+- Hardened the shared `ui-icon` primitive so CSS-drawn icons now use `inline-flex`, centered content, and a minimum 38px drawing box.
+- Added explicit flex-centering to icon-only controls on login, Mine, invite cards, privacy, report, and block-list pages.
+- Added regression coverage for the 232px capsule reserve, shared `ui-icon` minimum drawing box, and common icon-only controls staying centered.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 70/70.
+- Continued the Stitch visual parity pass for icon misalignment and undersized secondary-page proportions.
+- Added `ui-icon--refresh` and switched Nearby location/refresh/search plus Feed location/search controls to shared centered `ui-icon` primitives.
+- Enlarged Nearby filter action, secondary topbar touch targets, privacy/report/block controls, pet-management and pet-edit controls, and the invite-detail status pill.
+- Added a centered metadata icon row to `PetCard` and fixed `InviteCard` schedule/location icon alignment.
+- Added visual regression coverage for centered main-tab appbar icons, Stitch-scale secondary topbars/content, card metadata alignment, and invite-detail status scale.
+- Removed obsolete unreferenced TabBar PNG assets so the source icon directory only contains the current cache-busting Stitch assets.
+- Updated TabBar asset regression coverage to reject stale non-versioned and `feed-stitch-v2` icons.
+- Updated README WeChat Developer Tools guidance to mention the current `feed-stitch-v3` TabBar path.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 74/74.
+- Replaced the stale README scaffold-next-step section with the current implemented MVP development state and handoff guidance.
+- Softened the Mine default-pet `ACTIVE` badge from `font-weight: 700` to `600` to keep the account surface closer to the Stitch label hierarchy.
+- Added regression coverage so README cannot regress to the old scaffold handoff state and the Mine `ACTIVE` badge keeps the softened Stitch label weight.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 75/75.
+- Removed obsolete SVG placeholder mock assets from `src/assets/mock` so the source and generated WeChat package use only the current local JPEG visual assets.
+- Added regression coverage requiring both source and compiled mock visual asset directories to stay free of SVG placeholder leftovers.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 76/76.
+- Repaired the Mine account visual regression introduced by the latest Stitch alignment pass:
+  - updated architecture coverage to check the dynamic menu icon data (`pets`, `sparkle`, `group`, `lock`) instead of requiring every generated `ui-icon--*` class to appear literally in the TSX source
+  - locked the `宠圈精彩动态` menu item to `switchTab` with `/pages/feed/index`
+  - locked the corresponding CSS-drawn account menu icons in `theme.scss`
+- Re-verified `npm test`, `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 76/76.
+- Continued secondary-page Stitch visual alignment using cached Stitch HTML and live Stitch MCP connectivity.
+- Aligned privacy settings with the prototype copy and icon vocabulary:
+  - `在“附近”可见`
+  - stranger invite description
+  - owner nickname description
+  - location privacy safety copy
+  - shield footer and `Version 2.4.0 (Build 82)`
+- Aligned report with the prototype validation and section structure:
+  - report starts with no selected reason
+  - submit now prompts `请先选择一个举报理由` if no reason is selected
+  - report details copy is now optional
+  - reason labels match the Stitch prototype (`骚扰侮辱`, `营销广告`, `低俗色情`, `虐待动物`)
+  - section headings use CSS-drawn info/badge/camera icons
+- Aligned create-post with the prototype visibility vocabulary:
+  - added `followers` to `PostVisibility` for the current Mock-first UI option
+  - visibility labels now render as `公开` / `附近` / `粉丝` / `私密`
+  - visibility cards now include centered CSS icons
+  - pet identity card includes a swap icon
+  - topic utility uses a tag icon
+  - publish action includes a send icon
+- Aligned pet-management count rhythm to `{pets.length} 只萌宠`.
+- Added shared CSS-drawn `ui-icon` primitives for `person-add`, `badge`, `map`, `tag`, `send`, and `walk`.
+- Added regression coverage for the secondary Stitch visual vocabulary and the `followers` create-post option.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test`, `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 77/77.
+- Continued the Stitch form-page visual alignment pass for create-pet and invite creation:
+  - create-pet avatar upload badge now uses a centered CSS camera icon
+  - create-pet section headings now use `face` and `star` icon rows
+  - create-pet sticky submit now includes a centered `rocket` icon beside `保存并开始探索`
+  - invite creation now displays the prototype five invitation types: `遛弯儿` / `玩耍` / `公园见` / `宠物店` / `自定义`
+  - invite creation safety tips now use a shield icon
+  - invite creation sticky submit now includes a centered send icon
+  - invite creation styles gained hard Stitch color/shadow fallbacks for WeChat-safe rendering
+- Added visual regression coverage for create-pet form icons/labels, invite type ordering/copy, invite shield/send icons, and shared `face` / `star` / `rocket` CSS icon primitives.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test`, `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 77/77.
+- Continued secondary form-page Stitch visual alignment:
+  - create-post pet identity now uses an avatar wrapper with a small bottom-right swap badge
+  - create-post public visibility now uses a shared CSS `globe` icon
+  - create-post visibility section now has a prototype-style title row with a visibility icon
+  - create-post upload tile now shows camera plus count without the extra text label
+  - create-post location editing now lives inside the lightweight utility pill
+  - create-post publish button children are explicitly centered so text and send icon do not drift in NutUI's wrapper
+  - report target card now uses a local pet photo (`MOCK_IMAGES.dog`) instead of a text initial placeholder
+  - report reason heading now uses the flag/report icon vocabulary
+  - report evidence upload tile uses a softer Stitch upload surface
+  - privacy footer shield no longer uses transform-based icon scaling
+- Added visual regression coverage for create-post identity badge/send alignment/globe icon, report target image/flag icon, and the privacy shield no-scale rule.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test`, `npm run typecheck`, `npm run build:weapp`, and `npm test`; build succeeds without warnings and tests pass 78/78.
+- Increased the active WeChat capsule reserve to 280px/280rpx in the compiled visual contract, superseding the earlier 232px checkpoint for right-side search/action controls. The 232px entries above are historical checkpoints only.
+- Added dist-level WeChat visual regression coverage in `tests/weapp-runtime.test.ts` for:
+  - 280rpx capsule-safe appbar padding and pet-detail right reserve
+  - 80rpx main/secondary topbar controls
+  - 100rpx secondary settings side columns
+  - Mine menu/quick-action scale
+  - centered shared `ui-icon` offsets after WXSS compilation
+- Added dist-level stale-measurement coverage rejecting old compact navigation values such as `padding:88rpx 232rpx`, `right:232rpx`, `grid-template-columns:84rpx`, and old 64rpx icon touch targets on critical navigation/topbar files.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 80/80.
+- Added critical secondary/detail visual fallback regression coverage requiring same-property hard Stitch values before token-based `var(...)` declarations.
+- Hardened invite detail, pet detail, post detail, and privacy settings SCSS with hard color/background/border/shadow fallbacks so WeChat WXSS rendering cannot degrade into black/white or wireframe styling if CSS variables behave inconsistently.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test` and `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 81/81.
+- Extended hard visual fallback regression coverage to main pages and shared components so token-based border-color declarations must be paired with same-property hard values first.
+- Added hard border-color fallbacks for the feed active tab underline, login checkbox, Mine brand dot, Mine active-pet ring, Mine menu divider, nearby filter chips, and `PostCard` location icon.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test` and `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 82/82.
+- Expanded the secondary-page hard fallback regression from critical detail pages to all `subpackages/**/index.scss` files.
+- Added remaining hard fallback declarations for create-pet, edit-pet, pet-management empty state, create-post, and report form surfaces.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm test` and `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 82/82.
+- Reconfirmed live Stitch MCP access and downloaded current Stitch HTML references for Mine, Feed, and Nearby before continuing the visual pass.
+- Improved screenshot-reported proportion and icon-centering issues:
+  - Feed publish FAB now uses flex centering and a 68px icon box instead of transform-based scale/translate positioning.
+  - Mine profile badge icon and location icon now use full 44px centered icon boxes.
+  - Mine default-pet `ACTIVE` badge is more readable with 34px height and 20px text.
+  - Invite detail pet tags/stat labels, privacy footer copy/version, report badge/description/hints, block-list status chip, and pet-edit switch helper copy no longer use sub-20px text.
+- Extended architecture and dist-level WeChat visual regressions to lock the new FAB centering, icon box sizes, readable secondary labels/chips, and to reject transform-based icon drift patterns.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 82/82.
+- Reworked pet-management cards so the switch now toggles `pet.visible` through `petStore.updatePet(...)`, matching the Stitch `附近可见/附近隐藏` row semantics instead of acting as a default-pet control.
+- Reduced pet-management default/delete affordances from a heavy two-button bar into a lightweight management row while preserving default-pet and delete functions through the service/store layer.
+- Added a shared `settings-switch` visual primitive with 82px x 44px Stitch proportions and replaced native WeChat `Switch` controls on create-pet, pet-edit, and privacy-settings pages.
+- Removed obsolete pet-management NutUI button overrides for the old heavy action buttons and added coverage for the new lightweight action classes.
+- Added regression coverage preventing native switches from returning on key secondary form pages and locking the compiled `settings-switch` WXSS geometry.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 83/83.
+- Reworked the block-list page so blocked users render with local photo avatars and a CSS-drawn block overlay instead of `#id` placeholder avatars.
+- Replaced the privacy account-cancellation development copy with user-facing safety-process copy.
+- Added source and compiled-WXSS regression coverage for the block-list finished-state avatar treatment and 56rpx block overlay, and for preventing the old development copy from returning.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 83/83.
+- Accepted the current visual baseline per user direction and resumed project-plan/P0 functional execution instead of further one-to-one prototype restoration.
+- Updated the Mine page so current-phase unsupported entries (`特别关注列表`, `消息与通知中心`, `关于宠友圈`) render as static `即将开放` rows without chevrons or empty click handlers.
+- Added architecture regression coverage to keep Mine static rows from regressing into dead-link affordances.
+- Added `拉黑作者` to non-owner post detail pages, wired through `blockService.create(post.userId, '不想再看到该作者内容')`, with success/failure feedback and a return to the previous page.
+- Added NutUI/style coverage for the new post-detail block action so it keeps the existing soft danger-button treatment.
+- Replaced the post-detail comment row's static `回应` / `喜欢` labels with a working `举报评论` action routed through the existing report page.
+- Kept comment deletion under the existing owner/post-owner permission helper while removing the out-of-scope dead actions.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 83/83.
+
+## 2026-06-10
+
+- Continued current-scope P0 functional hardening after the user confirmed the visual baseline.
+- Added `getPetDetailActions` and regression coverage so pet detail shows safe actions:
+  - own pets: `编辑资料` and `发布动态`
+  - other users' pets: `拉黑` and `发起邀请`
+  - missing current user: no destructive/interactive pet-detail actions
+- Updated own-pet profile publishing so it opens `/subpackages/post/create/index?petId=...`.
+- Updated create-post to parse the optional `petId` route parameter and select that owned pet after `loadPets()`.
+- Added Mock report-target validation so missing or inaccessible users, pets, posts, comments, and invites are rejected before a report is persisted.
+- Added post-detail comment duplicate-send protection with a local `commenting` state and disabled send control.
+- Updated Mock post deletion so deleted posts hide their associated comments and reset `commentCount`.
+- Tightened Mock comment deletion so attempting to delete an already-deleted comment returns `评论不存在` and cannot decrement `commentCount` twice.
+- Shared Mock pet payload validation between create and edit flows so edited pets cannot save an empty nickname, more than 10 tags, or descriptions over 500 characters.
+- Added regression tests for:
+  - safe pet-detail action selection
+  - own-pet profile publish route preserving `petId`
+  - create-post route-selected pet behavior
+  - shared create/edit pet validation
+  - report target validation
+  - post-detail comment duplicate-send guard
+  - duplicate comment-delete count protection
+  - post-delete comment cleanup
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 89/89.
+- Continued toward final delivery organization after the user set the goal to proceed until handoff.
+- Ran a fresh P0 static scan for dead affordances, TODO/FIXME markers, empty click handlers, route strings, and service-layer boundaries.
+- Closed one remaining invite-creation dead affordance:
+  - imported `navigateTo` on `subpackages/invite/create`.
+  - wired the right-side more icon to `/subpackages/settings/report/index?targetType=pet&targetId=${toPetId}`.
+  - invalid target-pet params now show `接收宠物参数无效`.
+  - architecture coverage now locks the invite-creation report route.
+- Rebuilt `frontend/pet-social-mini/dist`.
+- Re-verified `npm run typecheck && npm run build:weapp && npm test`; build succeeds without warnings and tests pass 89/89.
+- Recorded the user's manual WeChat Developer Tools P0 walkthrough completion in `docs/SESSION_STATE.md`.
+- Updated the next-step handoff from "manual walkthrough required" to "prepare current MVP for handoff/version-control integration" while keeping the current MVP scope frozen.
+- Re-ran `npm run typecheck && npm run build:weapp && npm test` after the handoff documentation update; build succeeds without warnings and tests pass 89/89.
+- Prepared the MVP for git integration:
+  - added `**/project.private.config.json` to `.gitignore`.
+  - staged shared docs, source, tests, lockfile, visual assets, and WeChat shared project configs.
+  - kept generated `dist`, `.test-dist`, `node_modules`, and WeChat private configs out of version control.

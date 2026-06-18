@@ -2,111 +2,106 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> `AGENTS.md` is the authoritative, detailed contributor guide (in Chinese) covering design-system tokens, component-reuse rules, code conventions, and completion criteria. Read it before non-trivial work. This file is the quick orientation layer.
+## Read These First (mandatory)
 
-## Repository layout
+Before any code or doc change, read in this order — repository docs override chat context if they conflict:
 
-Two deployable projects plus design docs in one repo:
+1. `AGENTS.md` — current scope, hard guardrails, Stitch reference
+2. `docs/SESSION_STATE.md` — resumable state board and next step
+3. `git status --short --branch`
+4. `功能需求.md` / `技术文档.md` — product + full-stack architecture references (future phases, **do not edit** unless asked)
 
-- `pawmigo-server/` — Go 1.25 + Gin backend (auth, users, pet profiles, location/encounter/community APIs).
-- `pawmigo-mini/` — Taro 3.6 + React + TypeScript WeChat Mini Program (the primary UI).
-- `docs/superpowers/specs/` — confirmed design specs; `docs/superpowers/plans/` — implementation plans; `遛遛 Pawmigo · 功能需求文档 PRD v1.0.md` — product requirements.
+After any session that changes files, update `docs/SESSION_STATE.md` and `docs/CHANGELOG.md` (this is required, see AGENTS.md).
 
-Pawmigo is a dog-walking / encounter-matching / pet-community product for pet owners.
+## What This Is
 
-## CodeGraph
+`pawmigo` / 宠友圈 — a WeChat Mini Program for pet-centered nearby social networking. Two halves:
 
-The `.codegraph/` index is initialized and running. Prefer `codegraph_*` tools (search, context, trace, callers, callees, explore) over Grep/Read for structural questions — what calls what, where is X defined, what would break. The Cursor rule at `.cursor/rules/codegraph.mdc` has the full tool-selection table. Key rule: **answer directly with 2-3 codegraph calls, don't delegate exploration to sub-agents.**
+- `frontend/pet-social-mini` — Taro 4.2 + React 18 + TypeScript + NutUI/Taro + Zustand. This is the active product.
+- `backend/api` — Go + Gin P0 backend skeleton, **in-memory only**, for frontend/backend contract validation (not production persistence).
 
-## Backend (`pawmigo-server/`)
+UI source of truth is the Stitch prototype `projects/5635601718767463341` (accessed via the `open-design` / Stitch MCP). Do not invent a new visual direction. The user accepted the current visual baseline on 2026-06-09 — do not continue one-to-one prototype restoration unless given new visual feedback.
 
-### Commands
+## Scope Guardrails (from AGENTS.md)
 
-```bash
-cd pawmigo-server
-cp .env.example .env       # first time
-docker compose up -d        # MySQL 8 + Redis 7 for running the real server
-go run ./cmd/server         # boots on PORT (default 8080)
+The current phase is **WeChat Mini Program MVP + Mock-first + P0 user journey**. Stay inside it:
 
-go test ./...               # repo + handler tests use in-memory SQLite, no MySQL needed
-go test ./internal/service -run TestAuth   # single package / single test
-go build ./...
-go vet ./...                # there is no aggregated lint; go vet is the static check
+- Do **not** expand into MySQL/Redis, Docker Compose, the React admin app, production WeChat login, or object-storage upload unless the user explicitly opens that phase.
+- Do **not** wire pages directly to Mock data — pages call `@/services/*`, which switches between Mock and remote.
+- Do **not** make Docker a required local verification path (it was not installed during planning).
+- Do **not** delete/overwrite/revert user changes; inspect unexpected diffs with `git diff` and work with them.
+
+## Commands
+
+Frontend (`cd frontend/pet-social-mini`, uses `pnpm`):
+
+```sh
+pnpm install
+pnpm typecheck          # tsc --noEmit
+pnpm build:weapp        # taro build --type weapp  (must pass without warnings)
+pnpm dev:weapp          # watch build
+pnpm test               # see test harness note below
 ```
 
-Tests do **not** require MySQL/Redis — they use an in-memory SQLite DB. Only `go run ./cmd/server` needs the Docker services. The login endpoint really calls WeChat `code2session`; without valid `WX_APPID`/`WX_SECRET` a login smoke test returns a WeChat-side error, which means the chain reached the external service (not an internal routing failure).
+Standard handoff verification is all three: `pnpm typecheck && pnpm build:weapp && pnpm test`.
 
-### Architecture
+Remote-mode build (default is Mock):
 
-Strict layering, dependencies injected via constructors, external services behind interfaces (so tests swap in fakes):
-
-```
-handler  ->  service  ->  repository  ->  model
+```sh
+TARO_APP_API_MODE=remote TARO_APP_API_BASE_URL=http://localhost:8080 pnpm build:weapp
 ```
 
-- `cmd/server/main.go` — wiring/assembly and startup entry point.
-- `internal/handler/` — HTTP binding, auth context, status codes, responses **only**; `router.go` mounts routes. Protected routes sit behind the JWT middleware and read identity via `middleware.CtxUserID`.
-- `internal/service/` — all business rules (e.g. ownership checks, `FindOrCreateByOpenID`).
-- `internal/repository/` — persistence access only (MySQL via GORM, Redis); no business decisions.
-- `internal/middleware/jwt.go` — JWT sign/parse + Gin auth middleware.
-- `internal/wxauth/client.go` — WeChat `code2session` client, interface-abstracted.
-- `internal/model/` — GORM models; `migrations/` — MySQL init SQL.
+Backend (`cd backend/api`):
 
-When adding a DB field, update the GORM model, the migration, tests, and the API response contract together. Status-code convention: 401 unauthenticated, 403 forbidden, 400 bad input.
-
-## Mini Program (`pawmigo-mini/`)
-
-### Commands
-
-```bash
-cd pawmigo-mini
-npm install
-npm run dev:weapp          # taro build --watch; import pawmigo-mini/dist into WeChat DevTools
-npm run typecheck          # tsc --noEmit — the front-end static check
-npm run build:weapp        # production build into dist/
-npm run check:routes       # validate route registration
-npm run audit:weapp-ui     # UI audit (build + routes + visual check)
+```sh
+go test ./...
+go run ./cmd/server     # serves http://localhost:8080 ; GET /healthz ; /api/v1/* ; POST /api/v1/auth/wechat-login
 ```
 
-In WeChat DevTools enable "do not verify legal domains" for local dev and keep the backend on `http://localhost:8080`. The API base URL is hardcoded in `src/services/request.ts` (`http://localhost:8080/api/v1`) and must be swapped before production.
+WeChat Developer Tools: open the repo root or `frontend/pet-social-mini`; both `project.config.json` files point at `frontend/pet-social-mini/dist`. If old TabBar icons persist after a rebuild, clear compile cache. Current cache-busting tab paths: `nearby/invite/mine-stitch-v2` and `feed-stitch-v3`.
 
-Taro 3.6.34's dependency tree pins `webpack@5.88.2` via `overrides` — do not bump webpack/Taro without re-verifying `npm run build:weapp`.
+### Test harness (non-standard — read this)
 
-### Architecture
+There is no Jest/Vitest. `pnpm test` compiles `tsconfig.test.json` to `.test-dist/` then runs Node's built-in runner:
 
-- `src/app.config.ts` — pages, `tabBar`, permissions. Tab pages must appear consistently in both `pages` and `tabBar.list`.
-- **Services layer** — split into mock and real implementations behind a flag:
-  - `src/services/api.ts` — `USE_MOCK` flag; exports either `mockApi` or `realApi` as `api`. Currently `USE_MOCK = true`.
-  - `src/services/types.ts` — all domain types (`User`, `Pet`, `PetInput`, `Encounter`, `FeedPost`, `Team`, etc.). Extracted into its own file to break an import cycle between mockApi ↔ api.
-  - `src/services/mockApi.ts` — full mock API backed by an in-memory+persisted database (see below).
-  - `src/services/realApi.ts` — stubs that call `request.ts` for the real backend. Only a few endpoints implemented so far.
-  - `src/services/request.ts` — single Taro request wrapper (attaches JWT from storage, throws on `statusCode >= 400`).
-- **Mock data layer** (`src/mock/`):
-  - `db.ts` — mutable mock DB loaded from seed on first access, persisted to `Taro.setStorageSync('pawmigo:db')`. Exports `db`, `persistDb()`, `resetDb()`, `nextId()`.
-  - `seed.ts` — deterministic seed data (users, pets, posts, teams, etc.) via `makeSeed()`.
-  - `delay.ts` — simulated latency (`TIMINGS.fast/normal/slow`) and optional `maybeFail()` for testing error paths.
-- **Store** (`src/store/`) — Zustand global state:
-  - `sessionStore.ts` — primary session store: `login()` (WeChat login → jwt → refreshMe), user, pets, `createPet()`, `logout()`. Persisted to Taro storage via Zustand `persist` middleware.
-  - `taroStorage.ts` — Taro `StorageSync` adapter for Zustand's `persist` middleware.
-  - `authStore.ts` — legacy auth state (being consolidated into sessionStore).
-  - `appStore.ts` — app-level state (toast, loading, UI flags).
-- `src/components/ui.tsx` — the reusable component layer (`DSButton`, `SurfaceCard`, `Field`, `Tag`, `Chip`, `AppBar`, `PageShell`, `SectionHeader`, …). **Reuse/extend these before creating new components.**
-- `src/app.scss` — the design-system layer: all tokens, base classes, and component/page styles live here. Pages handle business state, data mapping, and navigation only — never re-declare colors/shadows/borders/radii/fonts inline.
-- `pages/design-system/index.tsx` — visual preview page, registered only outside production; the first checkpoint for visual regression. Add an example here when introducing a new button/card/form/tag pattern.
+```
+tsc -p tsconfig.test.json && node --test .test-dist/tests/**/*.test.js
+```
 
-### Design language
+Tests live in `frontend/pet-social-mini/tests/` and import source via the `@/*` alias (resolved through `tests/setup-alias.ts`). Taro is faked in `tests/fakes/taro.ts`. To run one file, build then target it: `tsc -p tsconfig.test.json && node --test .test-dist/tests/<name>.test.js`.
 
-High-contrast neo-brutalism from the Open Design HTML prototype: warm-yellow canvas (`#fffbeb`), white cards, black `2px` borders, hard offset shadows (`4px 4px 0 #000`), bold `800/900` headings, and `translate(2px,2px)` press-displacement on interactive elements. New styles go into the design-system region of `app.scss` using existing token variables — don't hardcode new brand colors or shadows in JSX.
+Most tests are **architecture/regression guards**, not unit tests of behavior. They lock in decisions: no direct Mock imports from pages, auth-guard installed on protected pages, Stitch visual anchors, WeChat-safe CSS, TabBar asset hashes, runtime-bundle safety. Treat a failing guard as "you reintroduced a known-bad pattern," not "the test is wrong."
 
-### Mock mode vs real backend
+## Architecture
 
-When `USE_MOCK = true` (current default), all API calls go through `mockApi.ts` which mutates the in-memory `db` and auto-persists to Taro storage. Data survives app restarts but a `logout()` calls `resetDb()` to restore the seed. To switch to the real backend, flip `USE_MOCK` to `false` — unimplemented real endpoints will throw "not implemented" errors.
+### Service layer is the seam (frontend)
 
-When adding a new API endpoint:
-1. Add types to `types.ts`.
-2. Implement in `mockApi.ts` (for mock mode).
-3. Add the stub signature to `realApi.ts` (throw `new Error('not implemented')` for now).
+`src/services/contracts.ts` defines every service interface (`AuthService`, `PetService`, `InviteService`, …) and the `AppServices` bundle. Two implementations satisfy it:
 
-## Privacy constraints (project-specific)
+- `src/services/mock/` — local in-memory DB + business rules (default)
+- `src/services/remote/` — HTTP client + request/response mapper against the Go backend
 
-This app uses WeChat login and location. Never write `openid`, `session_key`, real coordinates, the JWT secret, or WeChat secrets into logs, test snapshots, or commits. Per the design docs, real coordinates are used only for matching and are **not** persisted to MySQL; anything displayed externally must be desensitized.
+`src/services/index.ts` picks the implementation from `process.env.TARO_APP_API_MODE` (`mock` | `remote`) and re-exports concrete services. **Pages and Zustand stores import only from `@/services`** — never reach into `mock/` or `remote/` internals. Every exported Mock service method is wrapped so it cannot run outside Mock mode.
+
+State lives in Zustand stores under `src/store/` (`userStore`, `petStore`, `locationStore`, `uiStore`). Stores call services; pages consume stores.
+
+### Page structure
+
+- `src/pages/*` — the 5 main TabBar pages (login, nearby, feed, invite, mine)
+- `src/subpackages/*` — secondary flows (pet create/edit/detail/manage, post create/detail, invite create/detail, settings privacy/report/block)
+- `src/components/*` — shared cards/primitives; NutUI is imported only through `src/components/NutUI/index.ts` (targeted component + style imports, never the full NutUI stylesheet)
+- `src/hooks/useAuthGuard.ts` — login/pet route guard applied to protected pages
+- `src/utils/route.ts`, `ownership.ts`, `navigation.ts`, `format.ts` — validated route params, current-user ownership checks, Taro nav wrappers
+
+### Backend
+
+`backend/api/internal/http/router.go` wires all P0 routes under `/api/v1` behind `middleware.Auth`. A single `*memory.Store` (`internal/store/memory/store.go`) holds all state and enforces business rules (block visibility, invite ownership, daily limits). Responses use the `response.OK` / `response.Error` envelope. Domain types in `internal/domain`.
+
+## WeChat Mini Program gotchas (these have all bitten before)
+
+- **`process.env` must be compiled to literals.** `config/index.ts` injects `TARO_APP_API_MODE` / `TARO_APP_API_BASE_URL` via `defineConstants`. Referencing `process` at runtime crashes the mini program (`process is not defined`).
+- **Use named Taro API imports, not `Taro.*`.** Default-import member access (`Taro.getStorageSync`) compiles to a callable-wrapper that fails on real devices (`getStorageSync is not a function`). Import `{ getStorageSync }` etc. directly. A bundle scan test enforces this.
+- **All 16 rendered pages set `navigationStyle: 'custom'`** to avoid duplicate top bars; right-side controls use the shared `.capsule-safe-appbar` pattern (`--wechat-capsule-reserve: 280px`) so they clear the native WeChat capsule.
+- **CSS variables can fail to resolve in WeChat WXSS.** Every color/background/shadow/border must have a hard-value fallback declared *before* the `var(...)` line. Regression tests reject token-only declarations in `pages/**`, `subpackages/**`, and shared components.
+- Use shared `ui-button` / `ui-icon` CSS primitives (in `src/assets/styles/theme.scss`) and scoped NutUI Button overrides instead of emoji/text glyph icons or bare outline buttons.
+- Static assets (mock images) must be local under `src/assets/mock` (copied to `dist/assets/mock` via Taro `copy`); no remote/Unsplash domains. CSS minimizer `calc` is disabled (`csso.config.calc = false`) to avoid NutUI `rpx * var()` parse warnings.

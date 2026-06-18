@@ -1,0 +1,111 @@
+.feed-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 96px 40px 128px;
+  background: #f7fbed;
+  background: var(--color-bg, #f7fbed);
+}
+
+.feed-page__appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+}
+
+.feed-page__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.feed-page__pin,
+.feed-page__search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.feed-page__brand-name {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  font-size: 38px;
+  font-weight: 600;
+}
+
+.feed-page__title {
+  color: #191d15;
+  color: var(--color-text, #191d15);
+  font-family: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-display, "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.18;
+}
+
+.feed-tabs {
+  display: flex;
+  gap: 48px;
+  border-bottom: 1px solid rgba(193, 201, 181, 0.34);
+}
+
+.feed-tab {
+  height: 76px;
+  color: #727a68;
+  color: var(--color-text-muted, #727a68);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 76px;
+  text-align: center;
+}
+
+.feed-tab--active {
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  border-bottom: 4px solid #326b00;
+  border-bottom-color: #326b00;
+  border-bottom-color: var(--color-primary, #326b00);
+}
+
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.feed-page__fab {
+  position: fixed;
+  right: 40px;
+  bottom: 142px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background-color: #76b947;
+  background-color: var(--color-primary-container, #76b947);
+  background: #76b947;
+  background: var(--color-primary-container, #76b947);
+  box-shadow: 0 10px 22px rgba(50, 107, 0, 0.18);
+  box-shadow: var(--shadow-action, 0 10px 22px rgba(50, 107, 0, 0.18));
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+}
+
+.feed-page__fab-icon {
+  width: 68px;
+  min-width: 68px;
+  height: 68px;
+  min-height: 68px;
+  color: #326b00;
+  color: var(--color-primary, #326b00);
+  transform: none;
+}
