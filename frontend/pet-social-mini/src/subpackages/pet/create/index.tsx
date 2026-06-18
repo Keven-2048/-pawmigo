@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { navigateBack } from '@tarojs/taro'
+import { chooseImage, navigateBack } from '@tarojs/taro'
 import { Image, Input, Picker, Text, Textarea, View } from '@tarojs/components'
 import { Button } from '@/components/NutUI'
 import { DEFAULT_AVATARS, GENDER_LABEL, INTEREST_TAGS, PERSONALITY_TAGS, PET_TYPE_LABEL, VACCINE_LABEL } from '@/constants/options'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
+import { uploadService } from '@/services'
 import { usePetStore } from '@/store/petStore'
 import type { Gender, PetType, VaccineStatus } from '@/types/domain'
 import { showToast, toNearby } from '@/utils/navigation'
@@ -28,6 +29,7 @@ export default function CreatePetPage() {
   const [personalityTags, setPersonalityTags] = useState<string[]>(['活泼', '亲人'])
   const [interestTags, setInterestTags] = useState<string[]>(['遛弯', '公园'])
   const [description, setDescription] = useState('喜欢认识新朋友，见面会先闻闻再摇尾巴。')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [visible, setVisible] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -43,6 +45,18 @@ export default function CreatePetPage() {
     setter([...list, tag])
   }
 
+  const pickAvatar = async () => {
+    try {
+      const res = await chooseImage({ count: 1 })
+      const path = res.tempFilePaths?.[0]
+      if (!path) return
+      const url = await uploadService.uploadImage(path)
+      setAvatarUrl(url)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '头像上传失败')
+    }
+  }
+
   const submit = async () => {
     if (!ready) return
     if (submitting) return
@@ -50,7 +64,7 @@ export default function CreatePetPage() {
     try {
       await createPet({
         name,
-        avatarUrl: DEFAULT_AVATARS[type],
+        avatarUrl: avatarUrl || DEFAULT_AVATARS[type],
         type,
         breed,
         gender,
@@ -89,9 +103,9 @@ export default function CreatePetPage() {
       </View>
 
       <View className="create-pet__content">
-        <View className="create-pet__avatar-upload">
+        <View className="create-pet__avatar-upload" onClick={pickAvatar}>
           <View className="create-pet__avatar-shell">
-            <Image className="create-pet__avatar" src={DEFAULT_AVATARS[type]} mode="aspectFill" />
+            <Image className="create-pet__avatar" src={avatarUrl || DEFAULT_AVATARS[type]} mode="aspectFill" />
             <View className="create-pet__camera ui-icon ui-icon--camera" />
           </View>
           <Text className="create-pet__avatar-hint">点击上传宠物美照</Text>

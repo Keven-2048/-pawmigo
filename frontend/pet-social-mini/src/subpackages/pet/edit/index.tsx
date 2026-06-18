@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { navigateBack, useRouter } from '@tarojs/taro'
+import { chooseImage, navigateBack, useRouter } from '@tarojs/taro'
 import { Image, Input, Picker, Text, Textarea, View } from '@tarojs/components'
 import { Button } from '@/components/NutUI'
 import { DEFAULT_AVATARS, GENDER_LABEL, INTEREST_TAGS, PERSONALITY_TAGS, PET_TYPE_LABEL, VACCINE_LABEL } from '@/constants/options'
 import { EmptyState } from '@/components/EmptyState'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
-import { petService } from '@/services'
+import { petService, uploadService } from '@/services'
 import { usePetStore } from '@/store/petStore'
 import type { Gender, Pet, PetType, VaccineStatus } from '@/types/domain'
 import { showToast } from '@/utils/navigation'
@@ -34,6 +34,7 @@ export default function EditPetPage() {
   const [personalityTags, setPersonalityTags] = useState<string[]>([])
   const [interestTags, setInterestTags] = useState<string[]>([])
   const [description, setDescription] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [visible, setVisible] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -53,6 +54,7 @@ export default function EditPetPage() {
       setPersonalityTags(detail.personalityTags)
       setInterestTags(detail.interestTags)
       setDescription(detail.description)
+      setAvatarUrl(detail.avatarUrl || '')
       setVisible(detail.visible)
     }).catch((error) => {
       showToast(error instanceof Error ? error.message : '宠物资料加载失败')
@@ -61,6 +63,18 @@ export default function EditPetPage() {
 
   const toggleTag = (tag: string, list: string[], setter: (tags: string[]) => void) => {
     setter(list.includes(tag) ? list.filter((item) => item !== tag) : [...list, tag])
+  }
+
+  const pickAvatar = async () => {
+    try {
+      const res = await chooseImage({ count: 1 })
+      const path = res.tempFilePaths?.[0]
+      if (!path) return
+      const url = await uploadService.uploadImage(path)
+      setAvatarUrl(url)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '头像上传失败')
+    }
   }
 
   const submit = async () => {
@@ -73,7 +87,7 @@ export default function EditPetPage() {
     try {
       await updatePet(id, {
         name,
-        avatarUrl: pet?.avatarUrl || DEFAULT_AVATARS[type],
+        avatarUrl: avatarUrl || DEFAULT_AVATARS[type],
         type,
         breed,
         gender,
@@ -130,8 +144,8 @@ export default function EditPetPage() {
 
       <View className="edit-pet__content">
         <View className="edit-pet__avatar-card">
-          <View className="edit-pet__avatar-shell">
-            <Image className="edit-pet__avatar" src={pet.avatarUrl || DEFAULT_AVATARS[type]} mode="aspectFill" />
+          <View className="edit-pet__avatar-shell" onClick={pickAvatar}>
+            <Image className="edit-pet__avatar" src={avatarUrl || DEFAULT_AVATARS[type]} mode="aspectFill" />
             <View className="edit-pet__camera ui-icon ui-icon--camera" />
           </View>
           <View className="edit-pet__avatar-copy">

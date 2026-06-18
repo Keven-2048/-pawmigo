@@ -189,6 +189,20 @@
   text-align: center;
 }
 
+.report-evidence-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.report-evidence__thumb {
+  display: block;
+  width: 152px;
+  height: 152px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
 .report-evidence__plus {
   --ui-icon-offset: 7px;
   display: flex;
